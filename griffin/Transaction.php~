@@ -1,0 +1,35 @@
+<?php
+namespace Griffin;
+require "Route.php";
+
+class Transaction {
+
+    // URL patterns to route requests
+    // TODO this doesn't need to be a member of Transaction
+    private $urls = array(
+        "/^\/foo\/(?P<fid>\d+)/" => "Foo",
+    );
+
+    // application root
+    public $app_root;
+    // request path relative to the application root
+    public $path;
+    // Route class to handle the request
+    public $route;
+    // request paramaters
+    public $params;
+
+    function __construct() {
+        $this->app_root = preg_replace("/\/index.php$/", "", $_SERVER["DOCUMENT_URI"]);
+        $this->path = substr($_SERVER["REQUEST_URI"], strlen($this->app_root));
+        // parse the request for route and parameters
+        foreach ($this->urls as $regex => $class) {
+            if (preg_match($regex, $this->path, $matches)) {
+                $this->route = $class;
+                $this->params = $matches;
+            }
+            break;
+        }
+    }
+}
+?>
