@@ -7,7 +7,6 @@ class Transaction {
     public $app_root;
 
     // request method
-    // TODO probably don't need to store this ourselves ($_SERVER["REQUEST_METHOD"])
     public $request_method;
 
     // request path relative to the application root
@@ -19,9 +18,15 @@ class Transaction {
     // Route class to handle the request
     public $route;
 
+    // HTTP response code
+    public $response_code;
+
+    // response body
+    public $response_body;
+
     // URL patterns to route requests
     private $urls = array(
-        "/^\/foo\/(?P<fid>\d+)/" => "\Griffin\Foo",
+        "/^\/foo\/(?P<fid>\d+)$/" => "\Griffin\Foo",
     );
 
     function __construct() {
@@ -39,8 +44,40 @@ class Transaction {
         }
     }
 
-    function dispatch() {
-        call_user_func(array($this->route, $this->request_method));
+    public function dispatch() {
+        // we couldn't find a route for this request
+        // TODO this is probably a 400
+        if (!isset($this->route)) {
+            $this->response_code = 404;
+            $this->response_body = json_encode(array("message" => "resource not found"));
+        }
+        // we have a route but it doesn't support the request method
+        else if (!method_exists($this->route, $this->request_method)) {
+            $this->route->method_not_supported($this);
+        }
+        // dispatch the request to the appropriate route
+        else {
+            call_user_func(array($this->route, $this->request_method), $this);
+        }
+    }
+
+    public function respond() {
+        $this->status_line();
+        echo $this->response_body . "\n";
+    }
+
+    private function status_line() {
+        switch($this->response_code) {
+        case 200:
+            header($_SERVER["SERVER_PROTOCOL"]." 200 OK", true, 200);
+            break;
+        case 404:
+            header($_SERVER["SERVER_PROTOCOL"]." 404 Not Found", true, 404);
+            break;
+        case 405:
+            header($_SERVER["SERVER_PROTOCOL"]." 405 Method Not Allowed", true, 405);
+            break;
+        }
     }
 }
 ?>
