@@ -17,4 +17,14 @@ if (!$mysqli->query("CREATE DATABASE IF NOT EXISTS " . DB_NAME)) {
 if (!$mysqli->select_db(DB_NAME)) {
     die("Failed to select database: " . DB_NAME);
 }
+
+// create tables
+$query = 'CREATE TABLE IF NOT EXISTS `item` (
+    `id` integer NOT NULL PRIMARY KEY,
+    `data` text NOT NULL
+)';
+
+if (!$mysqli->query($query)) {
+    die("Failed to create table: " . "item");
+}
 ?>
