@@ -15,6 +15,9 @@ class Transaction {
     // request paramaters
     public $request_params;
 
+    // request data (POST or PUT)
+    public $request_data;
+
     // Route class to handle the request
     public $route;
 
@@ -27,6 +30,7 @@ class Transaction {
     // URL patterns to route requests
     private $urls = array(
         "/^\/foo\/(?P<fid>\d+)$/" => "\Griffin\Foo",
+        "/^\/foo\/$/" => "\Griffin\Foo",
     );
 
     function __construct() {
@@ -42,6 +46,10 @@ class Transaction {
                 break;
             }
         }
+
+        // store any POST or PUT data
+        // TODO need to parse this as JSON
+        $this->request_data = file_get_contents("php://input");
     }
 
     public function dispatch() {

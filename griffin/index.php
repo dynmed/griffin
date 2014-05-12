@@ -1,4 +1,5 @@
 <?php
+require "Database.php";
 require "Transaction.php";
 
 // container for HTTP Request/Response
