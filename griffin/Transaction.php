@@ -29,8 +29,8 @@ class Transaction {
 
     // URL patterns to route requests
     private $urls = array(
-        "/^\/foo\/(?P<fid>\d+)$/" => "\Griffin\Foo",
-        "/^\/foo\/$/" => "\Griffin\Foo",
+        "/^\/record\/(?P<id>\d+)$/" => "\Griffin\Record",
+        "/^\/record\/$/" => "\Griffin\Record",
     );
 
     function __construct() {
@@ -48,25 +48,44 @@ class Transaction {
         }
 
         // store any POST or PUT data
-        // TODO need to parse this as JSON
-        $this->request_data = file_get_contents("php://input");
+        if ((int) $_SERVER["CONTENT_LENGTH"]) {
+            // validate request data as well-formed JSON
+            $this->request_data = json_decode(file_get_contents("php://input"), true);
+            if (!$this->request_data) {
+                $this->stop(400, "Invalid Request", "Invalid JSON Format");
+            }
+        }
     }
 
     public function dispatch() {
         // we couldn't find a route for this request
-        // TODO this is probably a 400
         if (!isset($this->route)) {
-            $this->response_code = 404;
-            $this->response_body = json_encode(array("message" => "resource not found"));
+            $this->stop(400, "Invalid Request", "No Route Found");
         }
         // we have a route but it doesn't support the request method
         else if (!method_exists($this->route, $this->request_method)) {
-            $this->route->method_not_supported($this);
+            $this->stop(405, "Method Not Supported");
+        }
+        // we found a valid route, now make sure the request is authorized
+        if (!$this->route->authorize($this)) {
+            $this->stop(401, "Unauthorized");
         }
         // dispatch the request to the appropriate route
-        else {
-            call_user_func(array($this->route, $this->request_method), $this);
+        call_user_func(array($this->route, $this->request_method), $this);
+    }
+
+    // send response code and message and stop processing immediately
+    public function stop($response_code, $message, $details = "") {
+        $this->response_code = $response_code;
+        $response_body = array("status" => $response_code, "message" => $message);
+        // include any optional details in the response
+        if ($details) {
+            $response_body["details"] = $details;
         }
+        $this->response_body = json_encode($response_body);
+        $this->respond();
+        // don't process the request any further
+        exit;
     }
 
     public function respond() {
