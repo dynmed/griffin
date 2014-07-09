@@ -10,7 +10,8 @@ if ($mysqli->connect_errno) {
 }
 
 // make sure our database exists
-if (!$mysqli->query("CREATE DATABASE IF NOT EXISTS " . DB_NAME)) {
+if (!$mysqli->query("CREATE DATABASE IF NOT EXISTS " . DB_NAME .
+                    " DEFAULT CHARACTER SET utf8")) {
     die("Failed to create database: " . DB_NAME);
 }
 
@@ -19,10 +20,13 @@ if (!$mysqli->select_db(DB_NAME)) {
 }
 
 // create tables
-$query = 'CREATE TABLE IF NOT EXISTS `item` (
-    `id` integer NOT NULL PRIMARY KEY,
-    `data` text NOT NULL
-)';
+$query = "CREATE TABLE IF NOT EXISTS `record` (
+    `id` integer AUTO_INCREMENT NOT NULL PRIMARY KEY,
+    `user_id` integer NOT NULL,
+    `metadata` longtext,
+    `data` longtext
+)";
+// TODO add foreign key constraints and indexes
 
 if (!$mysqli->query($query)) {
     die("Failed to create table: " . "item");
