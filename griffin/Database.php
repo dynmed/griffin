@@ -23,12 +23,13 @@ if (!$mysqli->select_db(DB_NAME)) {
 $query = "CREATE TABLE IF NOT EXISTS `record` (
     `id` integer AUTO_INCREMENT NOT NULL PRIMARY KEY,
     `user_id` integer NOT NULL,
+    `type` tinyint NOT NULL,
     `metadata` longtext,
     `data` longtext
 )";
 // TODO add foreign key constraints and indexes
 
 if (!$mysqli->query($query)) {
-    die("Failed to create table: " . "item");
+    die("Failed to create table: " . "record");
 }
 ?>

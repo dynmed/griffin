@@ -50,7 +50,7 @@ class Transaction {
         // store any POST or PUT data
         if ((int) $_SERVER["CONTENT_LENGTH"]) {
             // validate request data as well-formed JSON
-            $this->request_data = json_decode(file_get_contents("php://input"), true);
+            $this->request_data = json_decode(file_get_contents("php://input"));
             if (!$this->request_data) {
                 $this->stop(400, "Invalid Request", "Invalid JSON Format");
             }
@@ -90,19 +90,30 @@ class Transaction {
 
     public function respond() {
         $this->status_line();
-        echo $this->response_body . "\n";
+        if (strlen($this->response_body)) {
+            echo $this->response_body . "\n";
+        }
     }
 
     private function status_line() {
-        switch($this->response_code) {
+        switch ($this->response_code) {
         case 200:
             header($_SERVER["SERVER_PROTOCOL"]." 200 OK", true, 200);
+            break;
+        case 201:
+            header($_SERVER["SERVER_PROTOCOL"]." 201 Created", true, 201);
+            break;
+        case 204:
+            header($_SERVER["SERVER_PROTOCOL"]." 204 No Content", true, 204);
             break;
         case 404:
             header($_SERVER["SERVER_PROTOCOL"]." 404 Not Found", true, 404);
             break;
         case 405:
             header($_SERVER["SERVER_PROTOCOL"]." 405 Method Not Allowed", true, 405);
+            break;
+        case 500:
+            header($_SERVER["SERVER_PROTOCOL"]." 500 Internal Server Error", true, 500);
             break;
         }
     }
