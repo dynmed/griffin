@@ -32,4 +32,15 @@ $query = "CREATE TABLE IF NOT EXISTS `record` (
 if (!$mysqli->query($query)) {
     die("Failed to create table: " . "record");
 }
+
+$query = "CREATE TABLE IF NOT EXISTS `user` (
+    `id` integer AUTO_INCREMENT NOT NULL PRIMARY KEY,
+    `email` varchar(255) NOT NULL,
+    `pubkey` longtext
+)";
+// TODO add foreign key constraints and indexes
+
+if (!$mysqli->query($query)) {
+    die("Failed to create table: " . "user");
+}
 ?>

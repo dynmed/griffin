@@ -120,13 +120,60 @@ class Record extends Route {
         $trans->stop(500, "Internal Server Error", "Unable to Delete Record");
     }
 
-    // TODO requires user table, request authentication keys, etc.
+    // TODO make error messages more generic
     public function authorize($trans) {
+        // basic formatting requirements for the Authorization header
+        $auth_parts = preg_split("/[\s:]+/", trim($_SERVER["HTTP_AUTHORIZATION"]));
+        if (count($auth_parts) != 3) {
+            $trans->stop(401, "Unauthorized", "Incorrect Auth Format");
+        }
+        $scheme = $auth_parts[0];
+        $user = $auth_parts[1];
+        $signature = $auth_parts[2];
+        // correct auth scheme
+        if ($scheme != "Griffin") {
+            $trans->stop(401, "Unauthorized", "Invalid Authorization Scheme");
+        }
+        // valid username format
+        if (!filter_var($user, FILTER_VALIDATE_EMAIL)) {
+            $trans->stop(401, "Unauthorized", "Invalid Username Format");
+        }
+        // auth contains a signature
+        if (!strlen($signature)) {
+            $trans->stop(401, "Unauthorized", "Signature Missing");
+        }
+        // validate the signature on the request
+        // TODO get the pub key from the database
+        $pubkey = file_get_contents("/tmp/griffin.pub");
+        $msg_content = \Sodium::crypto_sign_open(base64_decode($signature), $pubkey);
+        if ($msg_content === FALSE) {
+            $trans->stop(401, "Unauthorized", "Invalid Signature");
+        }
+        // we have a valid signature, make sure it matches the request fields
+        // TODO
+
         switch (strtolower($trans->request_method)) {
-        case "get":
-        case "post":
-        case "put":
-        case "delete":
+            // GET, PUT, and DELETE all operate on a single record identified by
+            // the id parameter. Authorization for all three means making sure the
+            // requesting user is the owner of that record.
+            case "get":
+            case "put":
+            case "delete":
+                $id = (int) $trans->request_params["id"];
+                $stmt = $trans->route->mysqli->prepare(
+                    "SELECT r.id FROM user AS u INNER JOIN record AS r ON u.id = r.user_id
+                     WHERE u.email=? and r.id=?;"
+                );
+                $stmt->bind_param("si", $user, $id);
+                $stmt->execute();
+                $stmt->store_result();
+                // requesting user is not the owner of this record
+                if (!$stmt->num_rows) {
+                    $trans->stop(401, "Unauthorized", "User Not Authorized");
+                }
+                break;
+            case "post":
+                break;
         }
         return true;
     }

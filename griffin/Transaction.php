@@ -106,6 +106,9 @@ class Transaction {
         case 204:
             header($_SERVER["SERVER_PROTOCOL"]." 204 No Content", true, 204);
             break;
+        case 401:
+            header($_SERVER["SERVER_PROTOCOL"]." 401 Unauthorized", true, 401);
+            break;
         case 404:
             header($_SERVER["SERVER_PROTOCOL"]." 404 Not Found", true, 404);
             break;
