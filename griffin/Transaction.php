@@ -6,8 +6,14 @@ class Transaction {
     // application root
     public $app_root;
 
+    // UID of requesting user
+    public $request_uid;
+
     // request method
     public $request_method;
+
+    // request content-type
+    public $request_content_type;
 
     // request path relative to the application root
     public $request_path;
@@ -15,8 +21,11 @@ class Transaction {
     // request paramaters
     public $request_params;
 
-    // request data (POST or PUT)
+    // request data (POST or PUT) as JSON
     public $request_data;
+
+    // request data (POST or PUT) exactly as sent
+    public $raw_request_data;
 
     // Route class to handle the request
     public $route;
@@ -36,6 +45,7 @@ class Transaction {
     function __construct() {
         $this->app_root = preg_replace("/\/index.php$/", "", $_SERVER["DOCUMENT_URI"]);
         $this->request_method = $_SERVER["REQUEST_METHOD"];
+        $this->request_content_type = $_SERVER["CONTENT_TYPE"];
         $this->request_path = substr($_SERVER["REQUEST_URI"], strlen($this->app_root));
 
         // parse the request for route and parameters
@@ -54,6 +64,7 @@ class Transaction {
             if (!$this->request_data) {
                 $this->stop(400, "Invalid Request", "Invalid JSON Format");
             }
+            $this->raw_request_data = file_get_contents("php://input");
         }
     }
 

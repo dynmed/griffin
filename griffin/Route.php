@@ -138,19 +138,59 @@ class Record extends Route {
         if (!filter_var($user, FILTER_VALIDATE_EMAIL)) {
             $trans->stop(401, "Unauthorized", "Invalid Username Format");
         }
+        // this username is registered and active
+        // TODO add active bool column to user
+        $stmt = $this->mysqli->prepare("SELECT id, pubkey FROM user WHERE email=?");
+        $stmt->bind_param("s", $user);
+        $stmt->execute();
+        $stmt->store_result();
+        $stmt->bind_result($uid, $pubkey);
+        if ($stmt->fetch()) {
+            $trans->request_uid = $uid;
+        }
+        else {
+            $trans->stop(401, "Unauthorized", "Invalid Username");
+        }
         // auth contains a signature
         if (!strlen($signature)) {
             $trans->stop(401, "Unauthorized", "Signature Missing");
         }
         // validate the signature on the request
-        // TODO get the pub key from the database
-        $pubkey = file_get_contents("/tmp/griffin.pub");
-        $msg_content = \Sodium::crypto_sign_open(base64_decode($signature), $pubkey);
-        if ($msg_content === FALSE) {
+        $signed_data = \Sodium::crypto_sign_open(base64_decode($signature),
+                                                 base64_decode($pubkey));
+        if ($signed_data === FALSE) {
             $trans->stop(401, "Unauthorized", "Invalid Signature");
         }
         // we have a valid signature, make sure it matches the request fields
-        // TODO
+        $signed_fields = json_decode($signed_data);
+        // make sure signature is formatted as JSON
+        if (!$signed_fields) {
+            $trans->stop(401, "Unauthorized", "Invalid Signed JSON");
+        }
+
+        // check that each of the signed fields matches the request details
+        // request path
+        if ($signed_fields->path !== $trans->app_root.$trans->request_path) {
+            $trans->stop(401, "Unauthorized", "Signature Does Not Match Request Path");
+        }
+        // request method
+        if ($signed_fields->method !== $trans->request_method) {
+            $trans->stop(401, "Unauthorized", "Signature Does Not Match Request Method");
+        }
+        // request content-type
+        if ($signed_fields->content_type !== $trans->request_content_type) {
+            $trans->stop(401, "Unauthorized", "Signature Does Not Match Content Type");
+        }
+        // request data
+        if ($signed_fields->data !== $trans->raw_request_data) {
+            $trans->stop(401, "Unauthorized", "Signature Does Not Match Request Data");
+        }
+
+        // all the signed fields are valid, check that the signature has not expired
+        // Note: `time()` returns epoch relative to GMT
+        if ((int)$signed_fields->expires < time()) {
+            $trans->stop(401, "Unauthorized", "Signature is Expired");
+        }
 
         switch (strtolower($trans->request_method)) {
             // GET, PUT, and DELETE all operate on a single record identified by
@@ -160,6 +200,8 @@ class Record extends Route {
             case "put":
             case "delete":
                 $id = (int) $trans->request_params["id"];
+                // TODO is it really $trans->route or is it just $this? We might have
+                // a cycle here.
                 $stmt = $trans->route->mysqli->prepare(
                     "SELECT r.id FROM user AS u INNER JOIN record AS r ON u.id = r.user_id
                      WHERE u.email=? and r.id=?;"
