@@ -141,11 +141,9 @@ def sign_request(request, key_dir):
     # sign over message fields with keys in key directory
     return sign_msg(message, key_dir)
 
-# return a Griffin record from the server
-# args: str record_id, str key_dir directory containing signing key
-# returns: str record or error details
-def get_record(record_id, key_dir):
-    req = urllib2.Request(url = "http://localhost/griffin/record/%s" % record_id)
+# TODO needs doc
+def http_request(method, url, data = None, key_dir = None):
+    req = urllib2.Request(url = url, data = data)
     sig = base64.b64encode(sign_request(req, key_dir))
     req.add_header("Authorization", "Griffin brandon@hackmill.com:%s" % sig)
     req.add_header("Host", "griffin.local")
@@ -158,11 +156,19 @@ def get_record(record_id, key_dir):
     except Exception, e:
         response = json.dumps({"status": "error", "details": str(e)})
     return response
+    
+
+# return a Griffin record from the server
+# args: str record_id, str key_dir directory containing signing key
+# returns: str record or error details
+def get_record(record_id, key_dir):
+    url = "http://griffin.local/griffin/record/%s" % record_id
+    return http_request("GET", url, key_dir = key_dir)
 
 def run_dev_tests():
     req = urllib2.Request(url = "http://localhost/griffin/record/",
                           data = '{"metadata": "whee", "data":"this is the encrypted stuff..."}')
-    req = urllib2.Request(url = "http://localhost/griffin/record/3")
+    req = urllib2.Request(url = "http://localhost/griffin/record/1")
     req.add_header("Content-Type", "application/json")
     # req.get_method = lambda: "POST"
     sig = base64.b64encode(sign_request(req, "/tmp"))

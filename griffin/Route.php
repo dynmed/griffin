@@ -135,6 +135,8 @@ class Record extends Route {
             $trans->stop(401, "Unauthorized", "Invalid Authorization Scheme");
         }
         // valid username format
+        // TODO this is probably a redundant check since we check the actual
+        // email address next
         if (!filter_var($user, FILTER_VALIDATE_EMAIL)) {
             $trans->stop(401, "Unauthorized", "Invalid Username Format");
         }
