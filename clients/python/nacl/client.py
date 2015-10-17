@@ -165,10 +165,14 @@ def get_record(record_id, key_dir):
     url = "http://griffin.local/griffin/record/%s" % record_id
     return http_request("GET", url, key_dir = key_dir)
 
+# send the full database to the server for synchronization
+def send_full_pw_database():
+    pass
+
 def run_dev_tests():
-    req = urllib2.Request(url = "http://localhost/griffin/record/",
+    req = urllib2.Request(url = "http://griffin.local/griffin/record/",
                           data = '{"metadata": "whee", "data":"this is the encrypted stuff..."}')
-    req = urllib2.Request(url = "http://localhost/griffin/record/1")
+    req = urllib2.Request(url = "http://griffin.local/griffin/record/1")
     req.add_header("Content-Type", "application/json")
     # req.get_method = lambda: "POST"
     sig = base64.b64encode(sign_request(req, "/tmp"))

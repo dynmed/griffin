@@ -34,10 +34,11 @@ class TestTransaction(unittest.TestCase):
         cls.opener = build_http_opener(debuglevel = ("--verbose" in sys.argv))
 
     def test_basic_request(self):
-        req = urllib2.Request(url = "http://localhost/%s/foo/42" % self.APP_ROOT)
+        req = urllib2.Request(url = "http://localhost/%s/record/42" % self.APP_ROOT)
         req.add_header("Host", "griffin.local")
-        resp = json.loads(self.opener.open(req).read())
-        self.assertEqual(resp["fid"], 42)
+        with self.assertRaises(urllib2.HTTPError):
+            resp = json.loads(self.opener.open(req).read())
+            print "resp: %s" % resp
 
 def drop_database():
     cmd = 'echo "drop database griffin" | mysql -u%s -p%s' % (CONFIG_PHP["DB_USER"],
