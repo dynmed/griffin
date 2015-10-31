@@ -37,8 +37,7 @@ class TestTransaction(unittest.TestCase):
         req = urllib2.Request(url = "http://localhost/%s/record/42" % self.APP_ROOT)
         req.add_header("Host", "griffin.local")
         with self.assertRaises(urllib2.HTTPError):
-            resp = json.loads(self.opener.open(req).read())
-            print "resp: %s" % resp
+            json.loads(self.opener.open(req).read())
 
 def drop_database():
     cmd = 'echo "drop database griffin" | mysql -u%s -p%s' % (CONFIG_PHP["DB_USER"],

@@ -1,6 +1,8 @@
 # Python reference client for Griffin Password Manager
 import nacl.encoding
 import nacl.signing
+import nacl.secret
+import nacl.utils
 import argparse
 import os
 import sys
@@ -9,14 +11,25 @@ import urlparse
 import datetime
 import base64
 import json
+import textwrap
+import pickle
 
-# parse a list of command line arguments and return a data structure containing
+# configuration values for the client to operate
+HTTP_SCHEME = "http"
+GRIFFIN_HOST = "griffin.local"
+GRIFFIN_PATH = "griffin"
+
+# Parse a list of command line arguments and return a data structure containing
 # the configuration options
 def parse_args(args = None):
     parser = argparse.ArgumentParser()
-    parser.add_argument("--generate-keypair", dest="generate_signing_key",
+    parser.add_argument("--generate-keyset", dest="generate_keyset",
                         action="store_true",
-                        help="Generate a new signing key pair for the Ed25519 algorithm")
+                        help="Generate a new set of signing and encryption keys")
+    parser.add_argument("--read-keyset", dest="read_keyset", action="store_true",
+                        help="Read a local keyset and return the list of parsed keys")
+    parser.add_argument("--register-user", dest="register_user", action="store_true",
+                        help="Register a new user on the server")
     parser.add_argument("--dump-verify-key", dest="dump_verify_key",
                         action="store_true",
                         help="Dump base64 encoded verify key to the console")
@@ -26,6 +39,18 @@ def parse_args(args = None):
                         help="Sign a message using the key in the given location")
     parser.add_argument("--msg", dest="msg", action="store",
                         help="Message to sign")
+    parser.add_argument("--create-record", dest="create_record", action="store_true",
+                        help="Create a Griffin record on the server")
+    parser.add_argument("--send-secrets", dest="send_secrets", action="store_true",
+                        help="Send Griffin secrets for storage on the server")
+    parser.add_argument("--age", dest="age", action="store",
+                        help="Secret record age (in seconds) to process")
+    parser.add_argument("--metadata", dest="metadata", action="store",
+                        help="Create a Griffin record with the following metadata")
+    parser.add_argument("--data", dest="data", action="store",
+                        help="Create a Griffin record with the following data")
+    parser.add_argument("--email", dest="email", action="store",
+                        help="Email address to use for the transaction")
     parser.add_argument("--get-record", dest="get_record", action="store",
                         help="Get a Griffin record from the server")
     parser.add_argument("--http-debug", dest="http_debug", action="store_true",
@@ -34,20 +59,40 @@ def parse_args(args = None):
                         help="Run development tests")
     args = parser.parse_args()
     # validate the arg combinations, etc.
-    if args.generate_signing_key and args.key_location is None:
-        parser.error("--generate-keypair requires --key-location also be specified")
+    if args.generate_keyset and args.key_location is None:
+        parser.error("--generate-keyset requires --key-location also be specified")
+    if args.read_keyset and args.key_location is None:
+        parser.error("--read-keyset requires --key-location also be specified")
     if args.sign_msg:
         if args.msg is None:
             parser.error("--sign-msg requires --msg be specified")
         if args.key_location is None:
             parser.error("--sign-msg requires --key-location also be specified")
+    if args.create_record:
+        if args.key_location is None:
+            parser.error("--create-record requires --key-location also be specified")
+        if args.metadata is None:
+            parser.error("--create-record requires --metadata also be specified")
+        if args.data is None:
+            parser.error("--create-record requires --data also be specified")
+    if args.send_secrets:
+        if args.key_location is None:
+            parser.error("--send-secrets requires --key-location also be specified")
+        if args.age is None:
+            parser.error("--send-secrets requires --age also be specified")
     if args.get_record is not None and args.key_location is None:
         parser.error("--get-record requires --key-location also be specified")
     if args.dump_verify_key and args.key_location is None:
         parser.error("--dump-verify-key requires --key-location also be specified")
+    if args.register_user:
+        if args.key_location is None:
+            parser.error("--register-user requires --key-location also be specified")
+        if args.email is None:
+            parser.error("--register-user requires --email also be specified")
     return args
 
-# create and return a URL-fetching object
+# Create and return a URL-fetching object
+#
 # args: int debuglevel (1 for verbose HTTP output)
 # returns: urllib2.OpenerDirector
 def build_http_opener(debuglevel = 0):
@@ -57,28 +102,65 @@ def build_http_opener(debuglevel = 0):
 # URL requestor object (created in main)
 opener = None
 
-# Generate and store a new signing key pair used in the Ed25519 algorithm
-# args: str key_dir directory to store keys in
-def generate_signing_key(key_dir):
+# wrapper object to contain signing and encryption keys that we can pickle and
+# store to the filesystem
+class GriffinKeySet(object):
+    def __init__(self):
+        self.version = 1
+        self.ED25519_PRIVATE_KEY = None
+        self.ED25519_VERIFY_KEY = None
+        self.SALSA20_PRIVATE_KEY = None
+    def get_signing_key(self):
+        return nacl.signing.SigningKey(base64.b64decode(self.ED25519_PRIVATE_KEY))
+
+# generate sigining and encryption keys, wrap and pickle them into a local file
+#
+# args: str key_dir directory to write keys into
+# returns: None
+def generate_keyset(key_dir):
     # resolve the key directory into an absolute path
     key_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), key_dir)
     if not os.path.isdir(key_dir):
         raise ValueError("Directory does not exist: %s" % key_dir)
-    s_keyname = os.path.join(key_dir, "griffin.key")
-    v_keyname = os.path.join(key_dir, "griffin.pub")
+    key_name = os.path.join(key_dir, "griffin.kdb")
     # make sure keys don't already exist in this location
-    if os.path.exists(s_keyname) or os.path.exists(v_keyname):
+    if os.path.exists(key_name):
         raise ValueError("Keys already present: %s" % key_dir)
     # generate the new random signing key
-    print "Generating Ed25519 signing keys in %s" % key_dir
     signing_key = nacl.signing.SigningKey.generate()
-    # store the private key seed
-    with open(s_keyname, "w") as fp:
-        fp.write(signing_key._seed)
-    # store verification key
-    with open(v_keyname, "w") as fp:
-        fp.write(signing_key.verify_key._key)
+    # generate the new symmetric encryption key
+    encrypt_key = nacl.utils.random(nacl.secret.SecretBox.KEY_SIZE)
+    # wrap the keys in a picklable object
+    keyset = GriffinKeySet()
+    keyset.ED25519_PRIVATE_KEY = base64.b64encode(signing_key._seed)
+    keyset.ED25519_VERIFY_KEY = base64.b64encode(signing_key.verify_key._key)
+    keyset.SALSA20_PRIVATE_KEY = base64.b64encode(encrypt_key)
+    # store the private key seed, verification key, and encryption to the key file
+    with open(key_name, "wb") as fp:
+        pickle.dump(keyset, fp)
+    print "[SUCCESS] Generated signing and encryption keys in %s" % key_dir
 
+# read and unpickle a local keyset file and return the GriffinKeySet object
+#
+# args: str key_dir directory containing keys
+# returns: GriffinKeySet
+def read_keyset(key_dir):
+    # resolve the key directory into an absolute path
+    key_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), key_dir)
+    if not os.path.isdir(key_dir):
+        raise ValueError("Directory does not exist: %s" % key_dir)
+    kdb_name = os.path.join(key_dir, "griffin.kdb")
+    # make sure key file exists
+    if not os.path.exists(kdb_name):
+        raise ValueError("Keys not found in: %s" % key_dir)
+    with open(kdb_name, "r") as fp:
+        return pickle.load(fp)
+
+# Dump the verification key (used by the server to validate requests) to the
+# console. Convenience function to manually transfer key to server prior to
+# online account registration being implemented.
+#
+# args: str key_dir directory containing keys
 def dump_verify_key(key_dir):
     # resolve the key directory into an absolute path
     key_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), key_dir)
@@ -92,15 +174,20 @@ def dump_verify_key(key_dir):
     sys.stdout.write(base64.b64encode(verify_key._key))
 
 # Sign a message using the signing key in the given directory
+#
 # args: str msg, str key_dir directory containing signing key
 # returns: nacl.signing.SignedMessage
 def sign_msg(msg, key_dir):
+    keyset = read_keyset(key_dir)
+    return keyset.get_signing_key().sign(msg)
+
+def encrypt_msg(msg, key_dir):
     # resolve the key directory into an absolute path
     key_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), key_dir)
     if not os.path.isdir(key_dir):
         raise ValueError("Directory does not exist: %s" % key_dir)
-    s_keyname = os.path.join(key_dir, "griffin.key")
-    # read in the signing key from the key directory
+    enc_keyname = os.path.join(key_dir, "griffin.pub")
+    # read in the encryption key from the key directory
     with open(s_keyname) as fp:
         signing_key = nacl.signing.SigningKey(fp.read())
     return signing_key.sign(msg)
@@ -144,9 +231,12 @@ def sign_request(request, key_dir):
 # TODO needs doc
 def http_request(method, url, data = None, key_dir = None):
     req = urllib2.Request(url = url, data = data)
-    sig = base64.b64encode(sign_request(req, key_dir))
-    req.add_header("Authorization", "Griffin brandon@hackmill.com:%s" % sig)
-    req.add_header("Host", "griffin.local")
+    req.add_header("Content-Type", "application/json")
+    req.get_method = lambda: method
+    if key_dir is not None:
+        sig = base64.b64encode(sign_request(req, key_dir))
+        # TODO store email in key db
+        req.add_header("Authorization", "Griffin brandon@hackmill.com:%s" % sig)
     # TODO factor this out into a generic request function so we can handle
     # exceptions more uniformly
     try:
@@ -156,26 +246,58 @@ def http_request(method, url, data = None, key_dir = None):
     except Exception, e:
         response = json.dumps({"status": "error", "details": str(e)})
     return response
-    
 
 # return a Griffin record from the server
 # args: str record_id, str key_dir directory containing signing key
 # returns: str record or error details
 def get_record(record_id, key_dir):
-    url = "http://griffin.local/griffin/record/%s" % record_id
+    url = "%s://%s/griffin/record/%s" % (HTTP_SCHEME, GRIFFIN_HOST, record_id)
     return http_request("GET", url, key_dir = key_dir)
 
 # send the full database to the server for synchronization
 def send_full_pw_database():
     pass
 
+def register_user(email, key_location):
+    keys = read_keyset(key_location)
+    url = "%s://%s/%s/user/" % (HTTP_SCHEME, GRIFFIN_HOST, GRIFFIN_PATH)
+    data = json.dumps({"email": email, "pubkey": keys.ED25519_VERIFY_KEY})
+    return http_request("POST", url, data = data)
+
+# create a new Griffin record on the server
+# args:
+#     str metadata cleartext metadata about record, str data encrypted data,
+#     str key_dir directory containing signing and encryption keys,
+# returns: str data about record created or error details
+def create_record(metadata, data, key_dir):
+    url = "%s://%s/griffin/record/" % (HTTP_SCHEME, GRIFFIN_HOST)
+    data = json.dumps({"metadata": metadata, "data": data})
+    return http_request("POST", url, data = data, key_dir = key_dir)
+
+
+# send Griffin secrets for storage on the server
+# args:
+#     int age (in seconds) of Secrets to send to server,
+#     str key_dir directory containing signing and encryption keys,
+# returns: str data about record created or error details
+def send_secrets(age, key_dir):
+    url = "%s://%s/%s/secret/" % (HTTP_SCHEME, GRIFFIN_HOST, GRIFFIN_PATH)
+    data = json.dumps({
+        "secrets": [{
+            "id": 2, "key_id": 1, "schema": 1,
+            "age": age, "data": "abc123abc123abc123abc123abc123abc123"
+        }]
+    })
+    # TODO encrypt data :-)
+    return http_request("POST", url, data = data, key_dir = key_dir)
+
 def run_dev_tests():
     req = urllib2.Request(url = "http://griffin.local/griffin/record/",
                           data = '{"metadata": "whee", "data":"this is the encrypted stuff..."}')
     req = urllib2.Request(url = "http://griffin.local/griffin/record/1")
     req.add_header("Content-Type", "application/json")
-    # req.get_method = lambda: "POST"
-    sig = base64.b64encode(sign_request(req, "/tmp"))
+    req.get_method = lambda: "POST"
+    sig = base64.b64encode(sign_request(req, "/home/brandon/scratch/keys"))
     print sig
 
 def main(args):
@@ -183,14 +305,22 @@ def main(args):
     global opener
     opener = build_http_opener(debuglevel=args.http_debug)
 
-    if args.generate_signing_key:
-        generate_signing_key(args.key_location)
+    if args.generate_keyset:
+        generate_keyset(args.key_location)
+    if args.read_keyset:
+        read_keyset(args.key_location)
     if args.dump_verify_key:
         dump_verify_key(args.key_location)
     if args.sign_msg:
         sys.stdout.write(sign_msg(args.msg, args.key_location))
+    if args.create_record:
+        sys.stdout.write(create_record(args.metadata, args.data, args.key_location))
     if args.get_record:
         sys.stdout.write(get_record(args.get_record, args.key_location))
+    if args.register_user:
+        sys.stdout.write(register_user(args.email, args.key_location))
+    if args.send_secrets:
+        sys.stdout.write(send_secrets(args.age, args.key_location))
     if args.run_dev_tests:
         run_dev_tests()
 

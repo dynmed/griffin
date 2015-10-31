@@ -36,11 +36,28 @@ if (!$mysqli->query($query)) {
 $query = "CREATE TABLE IF NOT EXISTS `user` (
     `id` integer AUTO_INCREMENT NOT NULL PRIMARY KEY,
     `email` varchar(255) NOT NULL,
-    `pubkey` longtext
+    `pubkey` longtext,
+    `valid` bool
 )";
 // TODO add foreign key constraints and indexes
 
 if (!$mysqli->query($query)) {
     die("Failed to create table: " . "user");
+}
+
+$query = "CREATE TABLE IF NOT EXISTS `secret` (
+    `id` integer NOT NULL,
+    `key_id` integer NOT NULL,
+    `schema` tinyint NOT NULL,
+    `updated` datetime NOT NULL,
+    `uid` integer NOT NULL,
+    `gid` integer,
+    `data` longtext,
+    PRIMARY KEY (`id`, `uid`)
+)";
+// TODO add foreign key constraints and indexes
+
+if (!$mysqli->query($query)) {
+    die("Failed to create table: " . "secret");
 }
 ?>

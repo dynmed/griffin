@@ -39,7 +39,9 @@ class Transaction {
     // URL patterns to route requests
     private $urls = array(
         "/^\/record\/(?P<id>\d+)$/" => "\Griffin\Record",
-        "/^\/record\/$/" => "\Griffin\Record",
+        "/^\/record\/?$/" => "\Griffin\Record",
+        "/^\/user\/?$/" => "\Griffin\User",
+        "/^\/secret\/?$/" => "\Griffin\Secret"
     );
 
     function __construct() {
@@ -116,6 +118,9 @@ class Transaction {
             break;
         case 204:
             header($_SERVER["SERVER_PROTOCOL"]." 204 No Content", true, 204);
+            break;
+        case 400:
+            header($_SERVER["SERVER_PROTOCOL"]." 400 Bad Request", true, 400);
             break;
         case 401:
             header($_SERVER["SERVER_PROTOCOL"]." 401 Unauthorized", true, 401);

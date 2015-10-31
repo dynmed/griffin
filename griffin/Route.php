@@ -18,15 +18,85 @@ class Route {
      * @param  \Griffin\Transaction
      * @return bool
      */
-    public function authorize($trans) { return False; }
+    public function authorize($trans) {
+        // basic formatting and signature checking for request
+        $auth_parts = preg_split("/[\s:]+/", trim($_SERVER["HTTP_AUTHORIZATION"]));
+        if (count($auth_parts) != 3) {
+            $trans->stop(401, "Unauthorized", "Incorrect Auth Format");
+        }
+        $scheme = $auth_parts[0];
+        $user = $auth_parts[1];
+        $signature = $auth_parts[2];
+        // correct auth scheme
+        if ($scheme != "Griffin") {
+            $trans->stop(401, "Unauthorized", "Invalid Authorization Scheme");
+        }
+        // valid username format
+        if (!filter_var($user, FILTER_VALIDATE_EMAIL)) {
+            $trans->stop(401, "Unauthorized", "Invalid Username Format");
+        }
+        // this username is registered and active
+        $stmt = $this->mysqli->prepare(
+            "SELECT id, pubkey FROM user WHERE email=? AND valid=TRUE"
+        );
+        $stmt->bind_param("s", $user);
+        $stmt->execute();
+        $stmt->store_result();
+        $stmt->bind_result($uid, $pubkey);
+        if ($stmt->fetch()) {
+            $trans->request_uid = $uid;
+        }
+        else {
+            $trans->stop(401, "Unauthorized", "Invalid Username");
+        }
+        // auth contains a signature
+        if (!strlen($signature)) {
+            $trans->stop(401, "Unauthorized", "Signature Missing");
+        }
+        // validate the signature on the request
+        $signed_data = \Sodium::crypto_sign_open(base64_decode($signature),
+                                                 base64_decode($pubkey));
+        if ($signed_data === FALSE) {
+            $trans->stop(401, "Unauthorized", "Invalid Signature");
+        }
+        // we have a valid signature, make sure it matches the request fields
+        $signed_fields = json_decode($signed_data);
+        // make sure signature is formatted as JSON
+        if (!$signed_fields) {
+            $trans->stop(401, "Unauthorized", "Invalid Signed JSON");
+        }
+        // check that each of the signed fields matches the request details
+        // request path
+        if ($signed_fields->path !== $trans->app_root.$trans->request_path) {
+            $trans->stop(401, "Unauthorized", "Signature Does Not Match Request Path");
+        }
+        // request method
+        if ($signed_fields->method !== $trans->request_method) {
+            $trans->stop(401, "Unauthorized", "Signature Does Not Match Request Method");
+        }
+        // request content-type
+        if ($signed_fields->content_type !== $trans->request_content_type) {
+            $trans->stop(401, "Unauthorized", "Signature Does Not Match Content Type");
+        }
+        // request data
+        if ($signed_fields->data !== $trans->raw_request_data) {
+            $trans->stop(401, "Unauthorized", "Signature Does Not Match Request Data");
+        }
+
+        // all the signed fields are valid, check that the signature has not expired
+        // Note: `time()` returns epoch relative to GMT
+        if ((int)$signed_fields->expires < time()) {
+            $trans->stop(401, "Unauthorized", "Signature is Expired");
+        }
+
+        // all validations pass
+        return True;
+    }
 }
 
 class Record extends Route {
     public function get($trans) {
         $stmt = $this->mysqli->prepare("SELECT id, metadata, data FROM record WHERE id=?");
-        if (!$stmt) {
-            $trans->stop(500, "Internal Server Error");
-        }
         // bind and fetch the requested record
         $id = (int) $trans->request_params["id"];
         $stmt->bind_param("i", $id);
@@ -55,14 +125,14 @@ class Record extends Route {
         if (!property_exists($trans->request_data, "data")) {
             $trans->stop(400, "Invalid Request", "Missing Request Parameter: data");
         }
-
-        // TODO extract user_id from valid request token
+        // prepared statement for creating a new record owned by the user we identified
+        // during request authorization
         $stmt = $this->mysqli->prepare(
             'INSERT INTO `record` (`id`, `user_id`, `metadata`, `data`)
-             VALUES (NULL, 0, ?, ?)'
+             VALUES (NULL, ?, ?, ?)'
         );
 
-        $stmt->bind_param("ss", $trans->request_data->metadata,
+        $stmt->bind_param("iss", $trans->request_uid, $trans->request_data->metadata,
                           $trans->request_data->data);
         if ($stmt->execute()) {
             $trans->response_code = 201;
@@ -122,77 +192,8 @@ class Record extends Route {
 
     // TODO make error messages more generic
     public function authorize($trans) {
-        // basic formatting requirements for the Authorization header
-        $auth_parts = preg_split("/[\s:]+/", trim($_SERVER["HTTP_AUTHORIZATION"]));
-        if (count($auth_parts) != 3) {
-            $trans->stop(401, "Unauthorized", "Incorrect Auth Format");
-        }
-        $scheme = $auth_parts[0];
-        $user = $auth_parts[1];
-        $signature = $auth_parts[2];
-        // correct auth scheme
-        if ($scheme != "Griffin") {
-            $trans->stop(401, "Unauthorized", "Invalid Authorization Scheme");
-        }
-        // valid username format
-        // TODO this is probably a redundant check since we check the actual
-        // email address next
-        if (!filter_var($user, FILTER_VALIDATE_EMAIL)) {
-            $trans->stop(401, "Unauthorized", "Invalid Username Format");
-        }
-        // this username is registered and active
-        // TODO add active bool column to user
-        $stmt = $this->mysqli->prepare("SELECT id, pubkey FROM user WHERE email=?");
-        $stmt->bind_param("s", $user);
-        $stmt->execute();
-        $stmt->store_result();
-        $stmt->bind_result($uid, $pubkey);
-        if ($stmt->fetch()) {
-            $trans->request_uid = $uid;
-        }
-        else {
-            $trans->stop(401, "Unauthorized", "Invalid Username");
-        }
-        // auth contains a signature
-        if (!strlen($signature)) {
-            $trans->stop(401, "Unauthorized", "Signature Missing");
-        }
-        // validate the signature on the request
-        $signed_data = \Sodium::crypto_sign_open(base64_decode($signature),
-                                                 base64_decode($pubkey));
-        if ($signed_data === FALSE) {
-            $trans->stop(401, "Unauthorized", "Invalid Signature");
-        }
-        // we have a valid signature, make sure it matches the request fields
-        $signed_fields = json_decode($signed_data);
-        // make sure signature is formatted as JSON
-        if (!$signed_fields) {
-            $trans->stop(401, "Unauthorized", "Invalid Signed JSON");
-        }
-
-        // check that each of the signed fields matches the request details
-        // request path
-        if ($signed_fields->path !== $trans->app_root.$trans->request_path) {
-            $trans->stop(401, "Unauthorized", "Signature Does Not Match Request Path");
-        }
-        // request method
-        if ($signed_fields->method !== $trans->request_method) {
-            $trans->stop(401, "Unauthorized", "Signature Does Not Match Request Method");
-        }
-        // request content-type
-        if ($signed_fields->content_type !== $trans->request_content_type) {
-            $trans->stop(401, "Unauthorized", "Signature Does Not Match Content Type");
-        }
-        // request data
-        if ($signed_fields->data !== $trans->raw_request_data) {
-            $trans->stop(401, "Unauthorized", "Signature Does Not Match Request Data");
-        }
-
-        // all the signed fields are valid, check that the signature has not expired
-        // Note: `time()` returns epoch relative to GMT
-        if ((int)$signed_fields->expires < time()) {
-            $trans->stop(401, "Unauthorized", "Signature is Expired");
-        }
+        // basic Authorization header validation
+        parent::authorize($trans);
 
         switch (strtolower($trans->request_method)) {
             // GET, PUT, and DELETE all operate on a single record identified by
@@ -220,6 +221,204 @@ class Record extends Route {
                 break;
         }
         return true;
+    }
+}
+
+class Secret extends Route {
+    // fetch secrets last updated within the past N seconds
+    public function get($trans, $seconds = null) {
+        // create the datetime used to query secrets
+        if (is_null($seconds)) {
+            $datetime = "0000-00-00 00:00:00";
+        }
+        else {
+            $datetime = "0000-00-00 00:00:00";
+        }
+
+        $stmt = $this->mysqli->prepare(
+            'SELECT * FROM `secret` WHERE `uid`=? AND `updated`>=?;'
+        );
+
+        $stmt->bind_param("ss", $trans->request_uid, $datetime);
+        if ($stmt->execute()) {
+            $trans->response_code = 200;
+            $trans->response_body = json_encode(
+                array(
+                    array("id" => 1, "enc_version" => 1, "schema_version" => 1,
+                          "updated" => "2015-05-12 08:15:00", "uid" => 1, "gid" => null,
+                          "data" => "CIPHERTEXTCIPHERTEXTCIPHERTEXT"),
+                    array("id" => 2, "enc_version" => 1, "schema_version" => 1,
+                          "updated" => "2015-06-01 10:45:30", "uid" => 1, "gid" => null,
+                          "data" => "CIPHERTEXTCIPHERTEXTCIPHERTEXT")
+                )
+            );
+            return;
+        }
+        // something went wrong with the query
+        $trans->stop(500, "Internal Server Error", "Unable to Service Request");
+    }
+
+    // create or update secrets
+    public function post($trans) {
+        // check signature on request
+        parent::authorize($trans);
+
+        // TODO property_exists pattern should be factored out and centralized
+        // validate that `secrets` were sent and were formatted as an array
+        if (!property_exists($trans->request_data, "secrets")) {
+            $trans->stop(400, "Invalid Request", "Missing Request Parameter: secrets");
+        }
+        if (!is_array($trans->request_data->secrets)) {
+            $trans->stop(400, "Invalid Request", "Param secrets should be array type");
+        }
+
+        // keep track of which secrets were created, updated, and skipped
+        $created_secrets = array();
+        $updated_secrets = array();
+        $skipped_secrets = array();
+
+        // look at each secret and update any that is fresher than the server copy
+        foreach ($trans->request_data->secrets as $secret) {
+            // skip any secrets that are improperly formatted, provide the secret
+            // ID and reason for being skipped
+            foreach(array("id", "key_id", "schema", "age") as $prop) {
+                // verify that required fields for secret are present
+                if (!property_exists($secret, $prop)) {
+                    array_push($skipped_secrets,
+                               array("id" => $secret->id,
+                                     "error" => "Missing property: ".$prop)
+                    );
+                }
+                // validate that secret fields are positive integers
+                else if ((!is_int($secret->{$prop})) ||
+                         ($secret->{$prop} <= 0)) {
+                    array_push($skipped_secrets,
+                               array("id" => $secret->id,
+                                     "error" => "Invalid ".$prop.": ".$secret->{$prop})
+                    );
+                }
+            }
+
+            // determine if we're updating an existing secret or creating a new one
+            $stmt = $this->mysqli->prepare(
+                'SELECT `id`, `updated` FROM `secret` WHERE `id`=? AND `uid`=?;'
+            );
+            $stmt->bind_param("ss", $secret->id, $trans->request_uid);
+            $stmt->execute();
+            $stmt->store_result();
+            $stmt->bind_result($id, $server_updated);
+            $stmt->fetch();
+            // create a local timestamp based on the request secret age
+            $client_updated = date("Y-m-d H:i:s",
+                                   strtotime(sprintf("-%d seconds", $secret->age)));
+
+            // existing secret with this ID, see if client or server version is newer
+            if ($stmt->num_rows) {
+                // client version has been updated more recently, so store the value
+                if ($client_updated > $server_updated) {
+                    $stmt = $this->mysqli->prepare(
+                        'UPDATE `secret`
+                         SET `key_id`=?, `schema`=?, `updated`=?, `data`=?
+                         WHERE `id`=? AND `uid`=?;'
+                    );
+                    $stmt->bind_param("ssssss", $secret->key_id, $secret->schema,
+                                      $client_updated, $secret->data, $secret->id,
+                                      $trans->request_uid);
+                    if ($stmt->execute()) {
+                        array_push($updated_secrets, array("id" => $secret->id));
+                    }
+                }
+                // server version is newer, skip performing the update
+                else {
+                    array_push($skipped_secrets,
+                               array("id" => $secret->id,
+                                     "msg" => "Server version is newer")
+                    );
+                }
+            }
+
+            // no secret with this ID, create it
+            else {
+                $stmt = $this->mysqli->prepare(
+                    'INSERT INTO `secret` (`id`, `key_id`, `schema`, `updated`,
+                                           `uid`, `data`)
+                     VALUES (?, ?, ?, ?, ?, ?)'
+                );
+                $stmt->bind_param("ssssss", $secret->id, $secret->key_id,
+                                  $secret->schema, $client_updated,
+                                  $trans->request_uid, $secret->data);
+                if ($stmt->execute()) {
+                    array_push($created_secrets, array("id" => $secret->id));
+                }
+            }
+        }
+
+        // 201 to indicate records were created, otherwise 200
+        if (count($created_secrets)) {
+            $trans->response_code = 201;
+        }
+        else {
+            $trans->response_code = 200;
+        }
+        // return the lists of secrets that were created, updated, or skipped
+        $trans->response_body = json_encode(
+            array("status" => $trans->response_code, "created" => $created_secrets,
+                  "updated" => $updated_secrets, "skipped" => $skipped_secrets)
+        );
+        return;
+    }
+
+    public function authorize($trans) {
+        return True;
+    }
+}
+
+class User extends Route {
+    // register a new user
+    public function post($trans) {
+        // validate email address
+        if (!property_exists($trans->request_data, "email")) {
+            $trans->stop(400, "Invalid Request", "Missing Request Parameter: email");
+        }
+        $email = $trans->request_data->email;
+        // valid email format
+        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            $trans->stop(400, "Invalid Request", "Invalid Username Format");
+        }
+        // no duplicate email addresses
+        $stmt = $this->mysqli->prepare("SELECT `id` FROM `user` WHERE `email`=?");
+        $stmt->bind_param("s", $email);
+        $stmt->execute();
+        $stmt->store_result();
+        if ($stmt->num_rows) {
+            $trans->stop(400, "User Already Exists");
+        }
+        // validate pubkey
+        if (!property_exists($trans->request_data, "pubkey")) {
+            $trans->stop(400, "Invalid Request", "Missing Request Parameter: pubkey");
+        }
+        // prepared statement for creating a new record owned by the user we identified
+        // during request authorization
+        // TODO: implement email validation
+        $stmt = $this->mysqli->prepare(
+            'INSERT INTO `user` (`email`, `pubkey`, `valid`)
+             VALUES (?, ?, True)'
+        );
+
+        $stmt->bind_param("ss", $email, $trans->request_data->pubkey);
+        if ($stmt->execute()) {
+            $trans->response_code = 201;
+            $trans->response_body = json_encode(
+                array("status" => 201, "message" => "User Created", "email" => $email)
+            );
+            return;
+        }
+        // something went wrong with the insert
+        $trans->stop(500, "Internal Server Error", "Unable to Create User");        
+    }
+
+    public function authorize($trans) {
+        return True;
     }
 }
 ?>
