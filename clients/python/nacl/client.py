@@ -26,8 +26,6 @@ def parse_args(args = None):
     parser.add_argument("--generate-keyset", dest="generate_keyset",
                         action="store_true",
                         help="Generate a new set of signing and encryption keys")
-    parser.add_argument("--read-keyset", dest="read_keyset", action="store_true",
-                        help="Read a local keyset and return the list of parsed keys")
     parser.add_argument("--register-user", dest="register_user", action="store_true",
                         help="Register a new user on the server")
     parser.add_argument("--dump-verify-key", dest="dump_verify_key",
@@ -61,8 +59,6 @@ def parse_args(args = None):
     # validate the arg combinations, etc.
     if args.generate_keyset and args.key_location is None:
         parser.error("--generate-keyset requires --key-location also be specified")
-    if args.read_keyset and args.key_location is None:
-        parser.error("--read-keyset requires --key-location also be specified")
     if args.sign_msg:
         if args.msg is None:
             parser.error("--sign-msg requires --msg be specified")
@@ -102,59 +98,132 @@ def build_http_opener(debuglevel = 0):
 # URL requestor object (created in main)
 opener = None
 
-# wrapper object to contain signing and encryption keys that we can pickle and
-# store to the filesystem
+# secret data to store in our encrypted database
+class GriffinSecret(object):
+    def __init__(self, id=None, key_id=None, schema=None, updated=None, data=None):
+        self.id = id
+        self.key_id = key_id
+        self.schema = schema
+        self.updated = updated
+        self.data = data
+    # human-readable string
+    def __str__(self):
+        props = {}
+        for k, v in self.__dict__.iteritems():
+            # don't display the data attribute
+            if k == "data":
+                continue
+            props[k] = v
+        return str(props)
+    def __repr__(self):
+        return self.__str__()
+
+# wrapper object to contain signing keys, encryption keys, and all the encrypted
+# secrets that we can pickle and store to the filesystem
 class GriffinKeySet(object):
-    def __init__(self):
+    KEYFILE_NAME = "griffin.kdb"
+
+    def __init__(self, keyfile=None):
+        # absolute path to key file
+        self.keyfile = keyfile
         self.version = 1
         self.ED25519_PRIVATE_KEY = None
         self.ED25519_VERIFY_KEY = None
         self.SALSA20_PRIVATE_KEY = None
+        # JSON list of secrets: obviously not ACID compliant, but this is a
+        # reference client, not intended for multi-threaded use
+        self.secrets = []
+
+    # generate sigining and encryption keys, pickle them to the file system
+    #
+    # args: str key_dir directory to store keys in
+    # returns: None
+    def generate_keys(self, key_dir):
+        # resolve the key directory into an absolute path
+        key_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), key_dir)
+        if not os.path.isdir(key_dir):
+            raise ValueError("Directory does not exist: %s" % key_dir)
+        key_name = os.path.join(key_dir, self.KEYFILE_NAME)
+        # make sure keys don't already exist in this location
+        if os.path.exists(key_name):
+            raise ValueError("Keys already present: %s" % key_dir)
+
+        # store the full path to our key file
+        self.keyfile = key_name
+        # generate the new random signing key
+        signing_key = nacl.signing.SigningKey.generate()
+        # generate the new symmetric encryption key
+        encrypt_key = nacl.utils.random(nacl.secret.SecretBox.KEY_SIZE)
+        # encode and store our keys
+        self.ED25519_PRIVATE_KEY = base64.b64encode(signing_key._seed)
+        self.ED25519_VERIFY_KEY = base64.b64encode(signing_key.verify_key._key)
+        self.SALSA20_PRIVATE_KEY = base64.b64encode(encrypt_key)
+        # persist to the file system
+        self.save_to_disk()
+
+    # read and unpickle a local GriffinKeySet from file and load properties
+    #
+    # args: str key_dir directory containing keys
+    # returns: GriffinKeySet
+    @classmethod
+    def read_keys(cls, key_dir):
+        # resolve the key directory into an absolute path
+        key_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), key_dir)
+        if not os.path.isdir(key_dir):
+            raise ValueError("Directory does not exist: %s" % key_dir)
+        kdb_name = os.path.join(key_dir, cls.KEYFILE_NAME)
+        # make sure key file exists
+        if not os.path.exists(kdb_name):
+            raise ValueError("Keys not found in: %s" % key_dir)
+        with open(kdb_name, "r") as fp:
+            return pickle.load(fp)
+
+    def get_next_id(self):
+        if not self.secrets:
+            return 1
+        # find and increment the highest ID in our local keystore
+        return max(self.secrets, key=lambda s: s.get("id")).get("id", 0) + 1
+
     def get_signing_key(self):
         return nacl.signing.SigningKey(base64.b64decode(self.ED25519_PRIVATE_KEY))
 
-# generate sigining and encryption keys, wrap and pickle them into a local file
+    # store a JSON secret in our local store
+    def save_secret(self, secret):
+        # no ID specified, generate a new ID to use
+        if secret.id is None:
+            secret.id = self.get_next_id()
+        # ID specified, determine if we need to update our existing record or skip
+        # the update if the local copy is newer
+        else:
+            pass
+        # the secret we were passed is newer than our copy, so store it
+        self.secrets.append(secret)
+        self.save_to_disk()
+
+    def save_to_disk(self):
+        with open(self.keyfile, "wb") as fp:
+            pickle.dump(self, fp)
+
+    def delete_from_disk(self):
+        if not os.path.exists(self.keyfile):
+            raise ValueError("No keyfile found: %s" % self.keyfile)
+        os.remove(self.keyfile)
+
+# generate a new local key database to store encrypted secrets
 #
-# args: str key_dir directory to write keys into
+# args: str key_dir directory to store key database in
 # returns: None
 def generate_keyset(key_dir):
-    # resolve the key directory into an absolute path
-    key_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), key_dir)
-    if not os.path.isdir(key_dir):
-        raise ValueError("Directory does not exist: %s" % key_dir)
-    key_name = os.path.join(key_dir, "griffin.kdb")
-    # make sure keys don't already exist in this location
-    if os.path.exists(key_name):
-        raise ValueError("Keys already present: %s" % key_dir)
-    # generate the new random signing key
-    signing_key = nacl.signing.SigningKey.generate()
-    # generate the new symmetric encryption key
-    encrypt_key = nacl.utils.random(nacl.secret.SecretBox.KEY_SIZE)
-    # wrap the keys in a picklable object
     keyset = GriffinKeySet()
-    keyset.ED25519_PRIVATE_KEY = base64.b64encode(signing_key._seed)
-    keyset.ED25519_VERIFY_KEY = base64.b64encode(signing_key.verify_key._key)
-    keyset.SALSA20_PRIVATE_KEY = base64.b64encode(encrypt_key)
-    # store the private key seed, verification key, and encryption to the key file
-    with open(key_name, "wb") as fp:
-        pickle.dump(keyset, fp)
-    print "[SUCCESS] Generated signing and encryption keys in %s" % key_dir
+    keyset.generate_keys(key_dir)
+    return keyset
 
 # read and unpickle a local keyset file and return the GriffinKeySet object
 #
 # args: str key_dir directory containing keys
 # returns: GriffinKeySet
 def read_keyset(key_dir):
-    # resolve the key directory into an absolute path
-    key_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), key_dir)
-    if not os.path.isdir(key_dir):
-        raise ValueError("Directory does not exist: %s" % key_dir)
-    kdb_name = os.path.join(key_dir, "griffin.kdb")
-    # make sure key file exists
-    if not os.path.exists(kdb_name):
-        raise ValueError("Keys not found in: %s" % key_dir)
-    with open(kdb_name, "r") as fp:
-        return pickle.load(fp)
+    return GriffinKeySet.read_keys(key_dir)
 
 # Dump the verification key (used by the server to validate requests) to the
 # console. Convenience function to manually transfer key to server prior to
@@ -307,8 +376,6 @@ def main(args):
 
     if args.generate_keyset:
         generate_keyset(args.key_location)
-    if args.read_keyset:
-        read_keyset(args.key_location)
     if args.dump_verify_key:
         dump_verify_key(args.key_location)
     if args.sign_msg:
