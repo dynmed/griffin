@@ -28,15 +28,8 @@ def parse_args(args = None):
                         help="Generate a new set of signing and encryption keys")
     parser.add_argument("--register-user", dest="register_user", action="store_true",
                         help="Register a new user on the server")
-    parser.add_argument("--dump-verify-key", dest="dump_verify_key",
-                        action="store_true",
-                        help="Dump base64 encoded verify key to the console")
     parser.add_argument("--key-location", dest="key_location", action="store",
                         help="Directory to store the keys in")
-    parser.add_argument("--sign-msg", dest="sign_msg", action="store_true",
-                        help="Sign a message using the key in the given location")
-    parser.add_argument("--msg", dest="msg", action="store",
-                        help="Message to sign")
     parser.add_argument("--create-record", dest="create_record", action="store_true",
                         help="Create a Griffin record on the server")
     parser.add_argument("--send-secrets", dest="send_secrets", action="store_true",
@@ -59,11 +52,6 @@ def parse_args(args = None):
     # validate the arg combinations, etc.
     if args.generate_keyset and args.key_location is None:
         parser.error("--generate-keyset requires --key-location also be specified")
-    if args.sign_msg:
-        if args.msg is None:
-            parser.error("--sign-msg requires --msg be specified")
-        if args.key_location is None:
-            parser.error("--sign-msg requires --key-location also be specified")
     if args.create_record:
         if args.key_location is None:
             parser.error("--create-record requires --key-location also be specified")
@@ -78,8 +66,6 @@ def parse_args(args = None):
             parser.error("--send-secrets requires --age also be specified")
     if args.get_record is not None and args.key_location is None:
         parser.error("--get-record requires --key-location also be specified")
-    if args.dump_verify_key and args.key_location is None:
-        parser.error("--dump-verify-key requires --key-location also be specified")
     if args.register_user:
         if args.key_location is None:
             parser.error("--register-user requires --key-location also be specified")
@@ -117,6 +103,12 @@ class GriffinSecret(object):
         return str(props)
     def __repr__(self):
         return self.__str__()
+    # allow secrets to be compared for equality (mostly for testing)
+    def __eq__(self, other):
+        return (self.id == other.id and
+                self.key_id == other.key_id and
+                self.schema == other.schema and
+                self.data == other.data)
 
 # wrapper object to contain signing keys, encryption keys, and all the encrypted
 # secrets that we can pickle and store to the filesystem
@@ -130,9 +122,48 @@ class GriffinKeySet(object):
         self.ED25519_PRIVATE_KEY = None
         self.ED25519_VERIFY_KEY = None
         self.SALSA20_PRIVATE_KEY = None
-        # JSON list of secrets: obviously not ACID compliant, but this is a
+        # dict of secrets: obviously not ACID compliant, but this is a
         # reference client, not intended for multi-threaded use
-        self.secrets = []
+        self.secrets = {}
+
+    # retrieve a secret by ID
+    #
+    # args: int id
+    # returns: GriffinSecret, None if error
+    def get(self, id):
+        return self.secrets.get(id, None)
+
+    # retrieve secrets based on various search criteria
+    def get_secrets(self, **kwargs):
+
+        # method for determining if a secret matches search criteria
+        def is_match(secret, **kwargs):
+            for name, value in kwargs.iteritems():
+                # "data__" prefix allows search inside data attribute
+                if name.startswith("data__"):
+                    name = name.split("data__")[1]
+                    if secret.data.get(name) != value:
+                        return False
+                # "__gt" suffix allows searching for secrets with x > y
+                elif name.endswith("__gt"):
+                    name = name.split("__gt")[0]
+                    if getattr(secret, name) <= value:
+                        return False
+                # search against other top-level attributes
+                elif getattr(secret, name) != value:
+                    return False
+            # all criteria match
+            return True
+
+        # match secrets based on one or more search criteria
+        matches = []
+        # iterate through all of our secrets to look for matches
+        for secret_id, secret in self.secrets.iteritems():
+            if is_match(secret, **kwargs):
+                matches.append(secret)
+
+        # return any secrets that matched all search criteria (sorted by id)
+        return sorted(matches, key=lambda s: s.id)
 
     # generate sigining and encryption keys, pickle them to the file system
     #
@@ -187,6 +218,12 @@ class GriffinKeySet(object):
     def get_signing_key(self):
         return nacl.signing.SigningKey(base64.b64decode(self.ED25519_PRIVATE_KEY))
 
+    def get_verify_key(self):
+        return nacl.signing.VerifyKey(base64.b64decode(self.ED25519_VERIFY_KEY))
+
+    def get_encrypt_key(self):
+        return base64.b64decode(self.SALSA20_PRIVATE_KEY)
+
     # store a JSON secret in our local store
     def save_secret(self, secret):
         # no ID specified, generate a new ID to use
@@ -195,9 +232,13 @@ class GriffinKeySet(object):
         # ID specified, determine if we need to update our existing record or skip
         # the update if the local copy is newer
         else:
-            pass
+            # do we have an existing copy with this ID and is it newer, if so
+            # skip the update
+            existing = self.get(secret.id)
+            if existing is not None and existing.updated > secret.updated:
+                return
         # the secret we were passed is newer than our copy, so store it
-        self.secrets.append(secret)
+        self.secrets[secret.id] = secret
         self.save_to_disk()
 
     def save_to_disk(self):
@@ -212,7 +253,7 @@ class GriffinKeySet(object):
 # generate a new local key database to store encrypted secrets
 #
 # args: str key_dir directory to store key database in
-# returns: None
+# returns: GriffinKeySet
 def generate_keyset(key_dir):
     keyset = GriffinKeySet()
     keyset.generate_keys(key_dir)
@@ -225,41 +266,37 @@ def generate_keyset(key_dir):
 def read_keyset(key_dir):
     return GriffinKeySet.read_keys(key_dir)
 
-# Dump the verification key (used by the server to validate requests) to the
-# console. Convenience function to manually transfer key to server prior to
-# online account registration being implemented.
+# Sign a message using the signing key in the given keyset
 #
-# args: str key_dir directory containing keys
-def dump_verify_key(key_dir):
-    # resolve the key directory into an absolute path
-    key_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), key_dir)
-    if not os.path.isdir(key_dir):
-        raise ValueError("Directory does not exist: %s" % key_dir)
-    v_keyname = os.path.join(key_dir, "griffin.pub")
-    # read in the public key from the key directory
-    with open(v_keyname) as fp:
-        verify_key = nacl.signing.VerifyKey(fp.read())
-    # dump base64 encoded verify key to the console
-    sys.stdout.write(base64.b64encode(verify_key._key))
-
-# Sign a message using the signing key in the given directory
-#
-# args: str msg, str key_dir directory containing signing key
+# args: str msg, GriffinKeySet keyset
 # returns: nacl.signing.SignedMessage
-def sign_msg(msg, key_dir):
-    keyset = read_keyset(key_dir)
+def sign_msg(msg, keyset):
     return keyset.get_signing_key().sign(msg)
 
-def encrypt_msg(msg, key_dir):
-    # resolve the key directory into an absolute path
-    key_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), key_dir)
-    if not os.path.isdir(key_dir):
-        raise ValueError("Directory does not exist: %s" % key_dir)
-    enc_keyname = os.path.join(key_dir, "griffin.pub")
-    # read in the encryption key from the key directory
-    with open(s_keyname) as fp:
-        signing_key = nacl.signing.SigningKey(fp.read())
-    return signing_key.sign(msg)
+# Verify a signed message using the verification key in the given keyset
+#
+# args: nacl.signing.SignedMessage signed_msg, GriffinKeySet keyset
+# returns: msg if valid, raises nacl.exceptions.BadSignatureError if invalid
+def verify_msg(signed_msg, keyset):
+    return keyset.get_verify_key().verify(signed_msg)
+
+# Encrypt a message using the symmetric encryption key in the given keyset
+#
+# args: str msg, GriffinKeySet keyset
+# returns: EncryptedMessage
+def encrypt_msg(msg, keyset):
+    box = nacl.secret.SecretBox(keyset.get_encrypt_key())
+    # nonce doesn't need to be secret but MUST be unique per message
+    nonce = nacl.utils.random(nacl.secret.SecretBox.NONCE_SIZE)
+    return box.encrypt(msg, nonce)
+
+# Decrypt a message using the symmetric encryption key in the given keyset
+#
+# args: EncryptedMessage encrypted_msg, GriffinKeySet keyset
+# returns: str plaintext
+def decrypt_msg(encrypted_msg, keyset):
+    box = nacl.secret.SecretBox(keyset.get_encrypt_key())
+    return box.decrypt(encrypted_msg)
 
 # Return epoch time (seconds elapsed since epoch) also accounting for an
 # optional timedelta
@@ -376,10 +413,6 @@ def main(args):
 
     if args.generate_keyset:
         generate_keyset(args.key_location)
-    if args.dump_verify_key:
-        dump_verify_key(args.key_location)
-    if args.sign_msg:
-        sys.stdout.write(sign_msg(args.msg, args.key_location))
     if args.create_record:
         sys.stdout.write(create_record(args.metadata, args.data, args.key_location))
     if args.get_record:
