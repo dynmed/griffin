@@ -3,6 +3,7 @@ import nacl.encoding
 import nacl.signing
 import nacl.secret
 import nacl.utils
+import nacl.hash
 import argparse
 import os
 import sys
@@ -46,12 +47,13 @@ def parse_args(args = None):
                         help="Get a Griffin record from the server")
     parser.add_argument("--http-debug", dest="http_debug", action="store_true",
                         help="Print verbose HTTP requests and responses")
-    parser.add_argument("--run-dev-tests", dest="run_dev_tests", action="store_true",
-                        help="Run development tests")
     args = parser.parse_args()
     # validate the arg combinations, etc.
-    if args.generate_keyset and args.key_location is None:
-        parser.error("--generate-keyset requires --key-location also be specified")
+    if args.generate_keyset:
+        if args.key_location is None:
+            parser.error("--generate-keyset requires --key-location also be specified")
+        if args.email is None:
+            parser.error("--generate-keyset requires --email also be specified")
     if args.create_record:
         if args.key_location is None:
             parser.error("--create-record requires --key-location also be specified")
@@ -69,8 +71,6 @@ def parse_args(args = None):
     if args.register_user:
         if args.key_location is None:
             parser.error("--register-user requires --key-location also be specified")
-        if args.email is None:
-            parser.error("--register-user requires --email also be specified")
     return args
 
 # Create and return a URL-fetching object
@@ -122,6 +122,8 @@ class GriffinKeySet(object):
         self.ED25519_PRIVATE_KEY = None
         self.ED25519_VERIFY_KEY = None
         self.SALSA20_PRIVATE_KEY = None
+        # email address of user
+        self.email = None
         # dict of secrets: obviously not ACID compliant, but this is a
         # reference client, not intended for multi-threaded use
         self.secrets = {}
@@ -129,7 +131,7 @@ class GriffinKeySet(object):
     # retrieve a secret by ID
     #
     # args: int id
-    # returns: GriffinSecret, None if error
+    # returns: GriffinSecret, None if not found
     def get(self, id):
         return self.secrets.get(id, None)
 
@@ -167,9 +169,9 @@ class GriffinKeySet(object):
 
     # generate sigining and encryption keys, pickle them to the file system
     #
-    # args: str key_dir directory to store keys in
+    # args: str key_dir directory to store keys in, str email address of user
     # returns: None
-    def generate_keys(self, key_dir):
+    def generate_keys(self, key_dir, email):
         # resolve the key directory into an absolute path
         key_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), key_dir)
         if not os.path.isdir(key_dir):
@@ -189,6 +191,8 @@ class GriffinKeySet(object):
         self.ED25519_PRIVATE_KEY = base64.b64encode(signing_key._seed)
         self.ED25519_VERIFY_KEY = base64.b64encode(signing_key.verify_key._key)
         self.SALSA20_PRIVATE_KEY = base64.b64encode(encrypt_key)
+        # store the email address (username)
+        self.email = email
         # persist to the file system
         self.save_to_disk()
 
@@ -218,7 +222,7 @@ class GriffinKeySet(object):
     def get_signing_key(self):
         return nacl.signing.SigningKey(base64.b64decode(self.ED25519_PRIVATE_KEY))
 
-    def get_verify_key(self):
+    def get_verify_key(self, b64=False):
         return nacl.signing.VerifyKey(base64.b64decode(self.ED25519_VERIFY_KEY))
 
     def get_encrypt_key(self):
@@ -252,11 +256,11 @@ class GriffinKeySet(object):
 
 # generate a new local key database to store encrypted secrets
 #
-# args: str key_dir directory to store key database in
+# args: str key_dir directory to store key database in, str email address
 # returns: GriffinKeySet
-def generate_keyset(key_dir):
+def generate_keyset(key_dir, email):
     keyset = GriffinKeySet()
-    keyset.generate_keys(key_dir)
+    keyset.generate_keys(key_dir, email)
     return keyset
 
 # read and unpickle a local keyset file and return the GriffinKeySet object
@@ -310,7 +314,7 @@ def get_epoch_time_with_delta(delta = datetime.timedelta(0)):
 
 # sign the relevant bits of a request
 # TODO needs better doc
-def sign_request(request, key_dir):
+def sign_request(request, keyset):
     # request method
     method = request.get_method()
     # request content-type (or empty string if not set to match PHP server behavior)
@@ -331,18 +335,19 @@ def sign_request(request, key_dir):
         "expires": expires
     })
 
-    # sign over message fields with keys in key directory
-    return sign_msg(message, key_dir)
+    # sign over message fields with keyset
+    return sign_msg(message, keyset)
 
 # TODO needs doc
-def http_request(method, url, data = None, key_dir = None):
+# args: str method, str data, GriffinKeySet keyset
+# returns: str response body
+def http_request(method, url, data = None, keyset = None):
     req = urllib2.Request(url = url, data = data)
     req.add_header("Content-Type", "application/json")
     req.get_method = lambda: method
-    if key_dir is not None:
-        sig = base64.b64encode(sign_request(req, key_dir))
-        # TODO store email in key db
-        req.add_header("Authorization", "Griffin brandon@hackmill.com:%s" % sig)
+    if keyset is not None:
+        sig = base64.b64encode(sign_request(req, keyset))
+        req.add_header("Authorization", "Griffin %s:%s" % (keyset.email, sig))
     # TODO factor this out into a generic request function so we can handle
     # exceptions more uniformly
     try:
@@ -364,11 +369,20 @@ def get_record(record_id, key_dir):
 def send_full_pw_database():
     pass
 
-def register_user(email, key_location):
-    keys = read_keyset(key_location)
+# register a new user on the server
+# args: GriffinKeySet keyset
+# returns: str JSON response 
+def register_user(keyset):
     url = "%s://%s/%s/user/" % (HTTP_SCHEME, GRIFFIN_HOST, GRIFFIN_PATH)
-    data = json.dumps({"email": email, "pubkey": keys.ED25519_VERIFY_KEY})
+    data = json.dumps({"email": keyset.email, "pubkey": keyset.ED25519_VERIFY_KEY})
     return http_request("POST", url, data = data)
+
+# deregister an existing user from the server
+# args: GriffinKeySet keyset
+# returns: str JSON response 
+def deregister_user(keyset):
+    url = "%s://%s/%s/user/" % (HTTP_SCHEME, GRIFFIN_HOST, GRIFFIN_PATH)
+    return http_request("DELETE", url, keyset = keyset)
 
 # create a new Griffin record on the server
 # args:
@@ -379,7 +393,6 @@ def create_record(metadata, data, key_dir):
     url = "%s://%s/griffin/record/" % (HTTP_SCHEME, GRIFFIN_HOST)
     data = json.dumps({"metadata": metadata, "data": data})
     return http_request("POST", url, data = data, key_dir = key_dir)
-
 
 # send Griffin secrets for storage on the server
 # args:
@@ -397,14 +410,13 @@ def send_secrets(age, key_dir):
     # TODO encrypt data :-)
     return http_request("POST", url, data = data, key_dir = key_dir)
 
-def run_dev_tests():
-    req = urllib2.Request(url = "http://griffin.local/griffin/record/",
-                          data = '{"metadata": "whee", "data":"this is the encrypted stuff..."}')
-    req = urllib2.Request(url = "http://griffin.local/griffin/record/1")
-    req.add_header("Content-Type", "application/json")
-    req.get_method = lambda: "POST"
-    sig = base64.b64encode(sign_request(req, "/home/brandon/scratch/keys"))
-    print sig
+# turn a passphrase into a symmetric encryption key
+#
+# args: str passphrase
+# returns: 32 bytes of key
+def derive_key_from_passphrase(passphrase):
+    # TODO NO, this is horrendously bad. Need an actual PBKDF like scrypt.
+    return nacl.hash.sha256(passphrase)[:64].decode("hex")
 
 def main(args):
     # probably want to factor this and other related items into a utils module
@@ -412,17 +424,15 @@ def main(args):
     opener = build_http_opener(debuglevel=args.http_debug)
 
     if args.generate_keyset:
-        generate_keyset(args.key_location)
+        generate_keyset(args.key_location, args.email)
     if args.create_record:
         sys.stdout.write(create_record(args.metadata, args.data, args.key_location))
     if args.get_record:
         sys.stdout.write(get_record(args.get_record, args.key_location))
     if args.register_user:
-        sys.stdout.write(register_user(args.email, args.key_location))
+        sys.stdout.write(register_user(read_keyset(args.key_location)))
     if args.send_secrets:
         sys.stdout.write(send_secrets(args.age, args.key_location))
-    if args.run_dev_tests:
-        run_dev_tests()
 
 if __name__ == "__main__":
     args = parse_args()

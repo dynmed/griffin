@@ -18,6 +18,8 @@ class Route {
      * @param  \Griffin\Transaction
      * @return bool
      */
+    // TODO this might be a bad name for this function if we only (sometimes)
+    // use it for AuthZ and other times just use it to parse the request
     public function authorize($trans) {
         // basic formatting and signature checking for request
         $auth_parts = preg_split("/[\s:]+/", trim($_SERVER["HTTP_AUTHORIZATION"]));
@@ -417,8 +419,44 @@ class User extends Route {
         $trans->stop(500, "Internal Server Error", "Unable to Create User");        
     }
 
+    // deregister a user
+    public function delete($trans) {
+        // parent::authorize() already validated that this user is registered
+        // and active
+
+        // delete all the secrets owned by this user
+        $stmt = $this->mysqli->prepare('DELETE FROM `secret` WHERE `uid`=?;');
+        $stmt->bind_param("i", $trans->request_uid);
+        if (!$stmt->execute()) {
+            $trans->stop(500, "Internal Server Error", "Unable to Delete Secrets");
+        }
+
+        // delete the user
+        $stmt = $this->mysqli->prepare('DELETE FROM `user` WHERE `id`=?;');
+        $stmt->bind_param("i", $trans->request_uid);
+        if (!$stmt->execute()) {
+            $trans->stop(500, "Internal Server Error", "Unable to Delete User");
+        }
+
+        // deregistration successful
+        $trans->response_code = 200;
+        $trans->response_body = json_encode(
+            array("status" => 200,
+                  "message" => "User Deregistered",
+                  "id" => $trans->request_uid)
+        );
+        return;
+    }
+
+    // TODO implement this
     public function authorize($trans) {
-        return True;
+        // registering a new user doesn't require authorization (only email
+        // validation)
+        if ($trans->request_method == "POST") {
+            return True;
+        }
+        // deregistration requires normal valid signature
+        return parent::authorize($trans);
     }
 }
 ?>

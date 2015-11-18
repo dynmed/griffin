@@ -1,13 +1,46 @@
 import unittest
 import time
 import datetime
+import re
+import sys
+import urllib2
+import os.path
+import json
+import random
 
 import client
 
+# read the values from config.php into a local data structure
+def read_config():
+    config = {}
+    fp = open(os.path.join(os.path.dirname(__file__),
+                           "../griffin/config.php"), "r")
+    for line in fp.readlines():
+        match = re.match("^define\(\"(?P<name>\w+)\", \"(?P<value>\w+)\"\);", line)
+        if match is not None:
+            config[match.group("name")] = match.group("value")
+    fp.close()
+    return config
+
+def build_http_opener(debuglevel = 0):
+    http = urllib2.HTTPHandler(debuglevel)
+    return urllib2.build_opener(http)
+
+# execute a shell command
+def exec_shell(cmd):
+    rv = subprocess.call(cmd, shell=True)
+
 class TestPythonClient(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.opener = build_http_opener(debuglevel = ("--verbose" in sys.argv))
+        cls.APP_ROOT = client.GRIFFIN_PATH
+        cls.PHP_CONFIG = read_config()
+        client.opener = client.build_http_opener(debuglevel=1)
 
     def setUp(self):
-        self.keyset = client.generate_keyset("/tmp")
+        email = "test_user_%s@example.org" % ('%x' % random.randrange(2**32))
+        self.keyset = client.generate_keyset("/tmp", email)
 
     def tearDown(self):
         try:
@@ -148,6 +181,21 @@ class TestPythonClient(unittest.TestCase):
         encrypted_msg = client.encrypt_msg(MSG, self.keyset)
         decrypted_msg = client.decrypt_msg(encrypted_msg, self.keyset)
         self.assertEqual(MSG, decrypted_msg)
+
+    def test_register_user(self):
+        resp = json.loads(client.register_user(self.keyset))
+        # test that we successfully registered the user
+        self.assertEqual(resp["status"], 201)
+        self.assertEqual(resp["message"], "User Created")
+        self.assertEqual(resp["email"], self.keyset.email)
+        # test that we can't register the same email address
+        resp = json.loads(client.register_user(self.keyset))
+        self.assertEqual(resp["status"], 400)
+        self.assertEqual(resp["message"], "User Already Exists")
+        # test that we can deregister the existing user
+        resp = json.loads(client.deregister_user(self.keyset))
+        self.assertEqual(resp["status"], 200)
+        self.assertEqual(resp["message"], "User Deregistered")
 
 if __name__ == "__main__":
     unittest.main()

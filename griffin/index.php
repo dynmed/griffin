@@ -1,6 +1,6 @@
 <?php
-require "Database.php";
 require "Transaction.php";
+require "Database.php";
 
 // container for HTTP Request/Response
 $trans = new \Griffin\Transaction();
