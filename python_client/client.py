@@ -35,7 +35,7 @@ def parse_args(args = None):
                         help="Create a Griffin record on the server")
     parser.add_argument("--send-secrets", dest="send_secrets", action="store_true",
                         help="Send Griffin secrets for storage on the server")
-    parser.add_argument("--age", dest="age", action="store",
+    parser.add_argument("--age", dest="age", action="store", type=int,
                         help="Secret record age (in seconds) to process")
     parser.add_argument("--metadata", dest="metadata", action="store",
                         help="Create a Griffin record with the following metadata")
@@ -92,6 +92,19 @@ class GriffinSecret(object):
         self.schema = schema
         self.updated = updated
         self.data = data
+    # serialize for sending to server
+    def serialize(self):
+        now = datetime.datetime.now()
+        updated = datetime.datetime.strptime(self.updated, "%Y-%m-%d %H:%M:%S")
+        delta = now - updated
+        return {
+            "id": self.id,
+            "key_id": self.key_id,
+            "schema": self.schema,
+            "data": self.data,
+            "age": int(delta.total_seconds())
+        }
+                 
     # human-readable string
     def __str__(self):
         props = {}
@@ -114,6 +127,7 @@ class GriffinSecret(object):
 # secrets that we can pickle and store to the filesystem
 class GriffinKeySet(object):
     KEYFILE_NAME = "griffin.kdb"
+    BASE_32 = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567"
 
     def __init__(self, keyfile=None):
         # absolute path to key file
@@ -128,6 +142,62 @@ class GriffinKeySet(object):
         # reference client, not intended for multi-threaded use
         self.secrets = {}
 
+    # export the signing and encryption keys to sync to another client
+    #
+    # args: None
+    # returns: dict of signing and encryption keys
+    def export_keys(self):
+        return { "version": self.version,
+                 "ED25519_PRIVATE_KEY": self.ED25519_PRIVATE_KEY,
+                 "ED25519_VERIFY_KEY": self.ED25519_VERIFY_KEY,
+                 "SALSA20_PRIVATE_KEY": self.SALSA20_PRIVATE_KEY }
+
+    # import synced keys from an existing client
+    #
+    # args: dict of signing and encryption keys
+    # TODO warn if we already contain keys
+    def import_keys(self, keys):
+        self.version = keys.get("version")
+        self.ED25519_PRIVATE_KEY = keys.get("ED25519_PRIVATE_KEY")
+        self.ED25519_VERIFY_KEY = keys.get("ED25519_VERIFY_KEY")
+        self.SALSA20_PRIVATE_KEY = keys.get("SALSA20_PRIVATE_KEY")
+
+    # return random 16 characters to use as a sync key
+    def get_sync_code(self):
+        return "".join([self.BASE_32[ord(byte) & 31]
+                        for byte in nacl.utils.random(16)])
+
+    # turn a passphrase into a symmetric encryption key
+    #
+    # args: str passphrase
+    # returns: 32 bytes of key
+    def get_key_from_passphrase(self, passphrase):
+        # TODO NO, this is horrendously bad. Need an actual PBKDF like scrypt.
+        return nacl.hash.sha256(passphrase)[:64].decode("hex")
+
+    # TODO better name
+    def wrap_keys(self):
+        code = self.get_sync_code()
+        box = nacl.secret.SecretBox(self.get_key_from_passphrase(code))
+        nonce = nacl.utils.random(nacl.secret.SecretBox.NONCE_SIZE)
+        ciphertext = box.encrypt(json.dumps(self.export_keys()), nonce)
+
+        # send the wrapped keys to the server
+        url = "%s://%s/%s/sync/" % (HTTP_SCHEME, GRIFFIN_HOST, GRIFFIN_PATH)
+        data = json.dumps({"data": base64.b64encode(ciphertext)})
+        # TODO handle non-successful request
+        resp = json.loads(http_request("POST", url, data = data, keyset = self))
+        return code
+
+    # retrieve synced keyset from server
+    def fetch_synced_keys(self, code):
+        box = nacl.secret.SecretBox(self.get_key_from_passphrase(code))
+        # request wrapped keys from server
+        url = "%s://%s/%s/sync/" % (HTTP_SCHEME, GRIFFIN_HOST, GRIFFIN_PATH)
+        resp = json.loads(http_request("GET", url, keyset = self))
+        ciphertext = base64.b64decode(resp.get("data", None))
+        return json.loads(box.decrypt(ciphertext))
+
     # retrieve a secret by ID
     #
     # args: int id
@@ -136,6 +206,8 @@ class GriffinKeySet(object):
         return self.secrets.get(id, None)
 
     # retrieve secrets based on various search criteria
+    # args: dict kwargs
+    # returns: list of GriffinSecrets
     def get_secrets(self, **kwargs):
 
         # method for determining if a secret matches search criteria
@@ -334,7 +406,6 @@ def sign_request(request, keyset):
         "data": data,
         "expires": expires
     })
-
     # sign over message fields with keyset
     return sign_msg(message, keyset)
 
@@ -357,13 +428,6 @@ def http_request(method, url, data = None, keyset = None):
     except Exception, e:
         response = json.dumps({"status": "error", "details": str(e)})
     return response
-
-# return a Griffin record from the server
-# args: str record_id, str key_dir directory containing signing key
-# returns: str record or error details
-def get_record(record_id, key_dir):
-    url = "%s://%s/griffin/record/%s" % (HTTP_SCHEME, GRIFFIN_HOST, record_id)
-    return http_request("GET", url, key_dir = key_dir)
 
 # send the full database to the server for synchronization
 def send_full_pw_database():
@@ -396,27 +460,26 @@ def create_record(metadata, data, key_dir):
 
 # send Griffin secrets for storage on the server
 # args:
-#     int age (in seconds) of Secrets to send to server,
-#     str key_dir directory containing signing and encryption keys,
+#     int age (in seconds) of secrets to send to server,
+#     GriffinKeySet keyset
 # returns: str data about record created or error details
-def send_secrets(age, key_dir):
+def send_secrets(age, keyset):
     url = "%s://%s/%s/secret/" % (HTTP_SCHEME, GRIFFIN_HOST, GRIFFIN_PATH)
+    # create time offset based on specified age
+    since = datetime.datetime.now() - datetime.timedelta(seconds = age)
     data = json.dumps({
-        "secrets": [{
-            "id": 2, "key_id": 1, "schema": 1,
-            "age": age, "data": "abc123abc123abc123abc123abc123abc123"
-        }]
+        "secrets": [s.serialize() for s in
+                    keyset.get_secrets(updated__gt =
+                                       since.strftime("%Y-%m-%d %H:%M:%S"))]
     })
     # TODO encrypt data :-)
-    return http_request("POST", url, data = data, key_dir = key_dir)
+    return http_request("POST", url, data = data, keyset = keyset)
 
-# turn a passphrase into a symmetric encryption key
-#
-# args: str passphrase
-# returns: 32 bytes of key
-def derive_key_from_passphrase(passphrase):
-    # TODO NO, this is horrendously bad. Need an actual PBKDF like scrypt.
-    return nacl.hash.sha256(passphrase)[:64].decode("hex")
+def request_secrets(age, keyset):
+    # TODO create shortcut for requesting all secrets
+    url = "%s://%s/%s/secret/%s/" % (HTTP_SCHEME, GRIFFIN_HOST, GRIFFIN_PATH, age)
+    # TODO encrypt data :-)
+    return http_request("GET", url, keyset = keyset)
 
 def main(args):
     # probably want to factor this and other related items into a utils module
@@ -432,7 +495,7 @@ def main(args):
     if args.register_user:
         sys.stdout.write(register_user(read_keyset(args.key_location)))
     if args.send_secrets:
-        sys.stdout.write(send_secrets(args.age, args.key_location))
+        sys.stdout.write(send_secrets(args.age, read_keyset(args.key_location)))
 
 if __name__ == "__main__":
     args = parse_args()

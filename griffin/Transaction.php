@@ -1,5 +1,16 @@
 <?php
 namespace Griffin;
+
+// simple logger function
+function log($msg) {
+    if (is_null(APP_LOG)) {
+        return;
+    }
+    $fp = fopen(APP_LOG, "a");
+    fwrite($fp, sprintf("[%s] %s\n", date("Y-m-d H:i:s"), $msg));
+    fclose($fp);
+}
+
 require "Route.php";
 
 class Transaction {
@@ -41,7 +52,9 @@ class Transaction {
         "/^\/record\/(?P<id>\d+)$/" => "\Griffin\Record",
         "/^\/record\/?$/" => "\Griffin\Record",
         "/^\/user\/?$/" => "\Griffin\User",
-        "/^\/secret\/?$/" => "\Griffin\Secret"
+        "/^\/secret\/(?P<seconds>\d+)\/?$/" => "\Griffin\Secret",
+        "/^\/secret\/?$/" => "\Griffin\Secret",
+        "/^\/sync\/?$/" => "\Griffin\Sync"
     );
 
     function __construct() {
@@ -135,6 +148,10 @@ class Transaction {
             header($_SERVER["SERVER_PROTOCOL"]." 500 Internal Server Error", true, 500);
             break;
         }
+    }
+
+    public function log($msg) {
+        file_put_contents("/tmp/griffin.log", $msg . "\n", FILE_APPEND);
     }
 }
 ?>

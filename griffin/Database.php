@@ -60,4 +60,16 @@ $query = "CREATE TABLE IF NOT EXISTS `secret` (
 if (!$mysqli->query($query)) {
     die("Failed to create table: " . "secret");
 }
+
+$query = "CREATE TABLE IF NOT EXISTS `sync` (
+    `id` integer AUTO_INCREMENT NOT NULL PRIMARY KEY,
+    `expires` datetime NOT NULL,
+    `uid` integer NOT NULL,
+    `data` longtext
+)";
+// TODO add foreign key constraints and indexes
+
+if (!$mysqli->query($query)) {
+    die("Failed to create table: " . "secret");
+}
 ?>

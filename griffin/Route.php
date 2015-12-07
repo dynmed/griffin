@@ -15,12 +15,13 @@ class Route {
     /**
      * Return whether or not the request is authorized
      *
-     * @param  \Griffin\Transaction
+     * @param  \Griffin\Transaction $trans
+     * @param  bool $check_signature
      * @return bool
      */
     // TODO this might be a bad name for this function if we only (sometimes)
     // use it for AuthZ and other times just use it to parse the request
-    public function authorize($trans) {
+    public function authorize($trans, $check_signature = True) {
         // basic formatting and signature checking for request
         $auth_parts = preg_split("/[\s:]+/", trim($_SERVER["HTTP_AUTHORIZATION"]));
         if (count($auth_parts) != 3) {
@@ -29,6 +30,7 @@ class Route {
         $scheme = $auth_parts[0];
         $user = $auth_parts[1];
         $signature = $auth_parts[2];
+        log("user: ".$user);
         // correct auth scheme
         if ($scheme != "Griffin") {
             $trans->stop(401, "Unauthorized", "Invalid Authorization Scheme");
@@ -51,6 +53,17 @@ class Route {
         else {
             $trans->stop(401, "Unauthorized", "Invalid Username");
         }
+        log("uid: ".$trans->request_uid);
+
+        // return early if the request doesn't require a signature
+        if (!$check_signature) {
+            return True;
+        }
+
+        /*
+         * Do signature validations
+         */
+
         // auth contains a signature
         if (!strlen($signature)) {
             $trans->stop(401, "Unauthorized", "Signature Missing");
@@ -228,9 +241,11 @@ class Record extends Route {
 
 class Secret extends Route {
     // fetch secrets last updated within the past N seconds
-    public function get($trans, $seconds = null) {
+    public function get($trans) {
+        // log(print_r($trans, True));
+        $seconds = (int) $trans->request_params["seconds"];
         // create the datetime used to query secrets
-        if (is_null($seconds)) {
+        if ($seconds == 0) {
             $datetime = "0000-00-00 00:00:00";
         }
         else {
@@ -238,22 +253,25 @@ class Secret extends Route {
         }
 
         $stmt = $this->mysqli->prepare(
-            'SELECT * FROM `secret` WHERE `uid`=? AND `updated`>=?;'
+            'SELECT `id`, `key_id`, `schema`, `updated`, `uid`, `gid`, `data` FROM `secret`
+             WHERE `uid`=? AND `updated`>=?;'
         );
-
-        $stmt->bind_param("ss", $trans->request_uid, $datetime);
+        log(print_r($trans, True));
+        $stmt->bind_param("is", $trans->request_uid, $datetime);
         if ($stmt->execute()) {
+            $stmt->store_result();
+            $stmt->bind_result($id, $key_id, $schema, $updated, $uid, $gid, $data);
+            $secrets = array();
+            // TODO updated should be in terms of seconds ago
+            while ($stmt->fetch()) {
+                array_push(
+                    $secrets,
+                    array("id" => $id, "key_id" => $key_id, "schema" => $schema,
+                          "updated" => $updated, "gid" => $gid, "data" => $data)
+                );
+            }
             $trans->response_code = 200;
-            $trans->response_body = json_encode(
-                array(
-                    array("id" => 1, "enc_version" => 1, "schema_version" => 1,
-                          "updated" => "2015-05-12 08:15:00", "uid" => 1, "gid" => null,
-                          "data" => "CIPHERTEXTCIPHERTEXTCIPHERTEXT"),
-                    array("id" => 2, "enc_version" => 1, "schema_version" => 1,
-                          "updated" => "2015-06-01 10:45:30", "uid" => 1, "gid" => null,
-                          "data" => "CIPHERTEXTCIPHERTEXTCIPHERTEXT")
-                )
-            );
+            $trans->response_body = json_encode($secrets);
             return;
         }
         // something went wrong with the query
@@ -262,6 +280,7 @@ class Secret extends Route {
 
     // create or update secrets
     public function post($trans) {
+        // log(print_r($trans, True));
         // check signature on request
         parent::authorize($trans);
 
@@ -290,6 +309,8 @@ class Secret extends Route {
                                array("id" => $secret->id,
                                      "error" => "Missing property: ".$prop)
                     );
+                    // skip to the next secret (don't keep validating this one)
+                    break 2;
                 }
                 // validate that secret fields are positive integers
                 else if ((!is_int($secret->{$prop})) ||
@@ -298,6 +319,8 @@ class Secret extends Route {
                                array("id" => $secret->id,
                                      "error" => "Invalid ".$prop.": ".$secret->{$prop})
                     );
+                    // skip to the next secret (don't keep validating this one)
+                    break 2;
                 }
             }
 
@@ -342,15 +365,17 @@ class Secret extends Route {
             // no secret with this ID, create it
             else {
                 $stmt = $this->mysqli->prepare(
-                    'INSERT INTO `secret` (`id`, `key_id`, `schema`, `updated`,
-                                           `uid`, `data`)
+                    'INSERT INTO `secret` (`id`, `key_id`, `schema`, `updated`, `uid`, `data`)
                      VALUES (?, ?, ?, ?, ?, ?)'
                 );
-                $stmt->bind_param("ssssss", $secret->id, $secret->key_id,
+                $stmt->bind_param("iiisis", $secret->id, $secret->key_id,
                                   $secret->schema, $client_updated,
-                                  $trans->request_uid, $secret->data);
+                                  $trans->request_uid, json_encode($secret->data));
                 if ($stmt->execute()) {
                     array_push($created_secrets, array("id" => $secret->id));
+                }
+                else {
+                    array_push($skipped_secrets, array("id" => $secret->id));
                 }
             }
         }
@@ -371,7 +396,7 @@ class Secret extends Route {
     }
 
     public function authorize($trans) {
-        return True;
+        return parent::authorize($trans);
     }
 }
 
@@ -421,6 +446,7 @@ class User extends Route {
 
     // deregister a user
     public function delete($trans) {
+        // log(print_r($trans, True));
         // parent::authorize() already validated that this user is registered
         // and active
 
@@ -448,7 +474,6 @@ class User extends Route {
         return;
     }
 
-    // TODO implement this
     public function authorize($trans) {
         // registering a new user doesn't require authorization (only email
         // validation)
@@ -456,6 +481,63 @@ class User extends Route {
             return True;
         }
         // deregistration requires normal valid signature
+        return parent::authorize($trans);
+    }
+}
+
+class Sync extends Route {
+
+    public function get($trans) {
+        $stmt = $this->mysqli->prepare("SELECT data FROM sync WHERE uid=?");
+        // bind and fetch the requested record
+        $uid = (int) $trans->request_uid;
+        $stmt->bind_param("i", $uid);
+        $stmt->execute();
+        // You have to first call store_result for bind_result to work with a LONGTEXT
+        // column. See: https://bugs.php.net/bug.php?id=47928
+        $stmt->store_result();
+        $stmt->bind_result($data);
+        if ($stmt->fetch()) {
+            $trans->response_code = 200;
+            $trans->response_body = json_encode( array("data" => $data) );
+            return;
+        }
+        // there was a problem fetching the requested data
+        $trans->stop(404, "Resource Not Found");
+    }
+
+    public function post($trans) {
+        if (!property_exists($trans->request_data, "data")) {
+            $trans->stop(400, "Invalid Request", "Missing Request Parameter: data");
+        }
+
+        // TODO fix expiry
+        $expires = "0000-00-00 00:00:00";
+
+        $stmt = $this->mysqli->prepare(
+            'INSERT INTO `sync` (`expires`, `uid`, `data`)
+             VALUES (?, ?, ?)'
+        );
+        $stmt->bind_param("sss", $expires, $trans->request_uid, $trans->request_data->data);
+
+        if ($stmt->execute()) {
+            $trans->response_code = 201;
+            $trans->response_body = json_encode(
+                array("status" => 201, "message" => "Sync Created", "id" => $stmt->insert_id)
+            );
+            return;
+        }
+        // something went wrong with the insert
+        $trans->stop(500, "Internal Server Error", "Unable to Create Sync");
+    }
+
+    public function authorize($trans) {
+        // requesting synced keys only requires a valid user, not a valid
+        // signature (they don't have the signing key yet)
+        if ($trans->request_method == "GET") {
+            return parent::authorize($trans, False);
+        }
+        // posting synced keys requires normal valid signature
         return parent::authorize($trans);
     }
 }
