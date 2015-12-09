@@ -104,7 +104,7 @@ class GriffinSecret(object):
             "data": self.data,
             "age": int(delta.total_seconds())
         }
-                 
+
     # human-readable string
     def __str__(self):
         props = {}

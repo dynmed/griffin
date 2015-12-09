@@ -149,9 +149,5 @@ class Transaction {
             break;
         }
     }
-
-    public function log($msg) {
-        file_put_contents("/tmp/griffin.log", $msg . "\n", FILE_APPEND);
-    }
 }
 ?>

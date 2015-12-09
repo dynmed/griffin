@@ -30,7 +30,6 @@ class Route {
         $scheme = $auth_parts[0];
         $user = $auth_parts[1];
         $signature = $auth_parts[2];
-        log("user: ".$user);
         // correct auth scheme
         if ($scheme != "Griffin") {
             $trans->stop(401, "Unauthorized", "Invalid Authorization Scheme");
@@ -53,7 +52,6 @@ class Route {
         else {
             $trans->stop(401, "Unauthorized", "Invalid Username");
         }
-        log("uid: ".$trans->request_uid);
 
         // return early if the request doesn't require a signature
         if (!$check_signature) {
@@ -242,7 +240,6 @@ class Record extends Route {
 class Secret extends Route {
     // fetch secrets last updated within the past N seconds
     public function get($trans) {
-        // log(print_r($trans, True));
         $seconds = (int) $trans->request_params["seconds"];
         // create the datetime used to query secrets
         if ($seconds == 0) {
@@ -256,7 +253,6 @@ class Secret extends Route {
             'SELECT `id`, `key_id`, `schema`, `updated`, `uid`, `gid`, `data` FROM `secret`
              WHERE `uid`=? AND `updated`>=?;'
         );
-        log(print_r($trans, True));
         $stmt->bind_param("is", $trans->request_uid, $datetime);
         if ($stmt->execute()) {
             $stmt->store_result();
@@ -280,7 +276,6 @@ class Secret extends Route {
 
     // create or update secrets
     public function post($trans) {
-        // log(print_r($trans, True));
         // check signature on request
         parent::authorize($trans);
 
@@ -446,7 +441,6 @@ class User extends Route {
 
     // deregister a user
     public function delete($trans) {
-        // log(print_r($trans, True));
         // parent::authorize() already validated that this user is registered
         // and active
 

@@ -43,7 +43,7 @@ class TestPythonClient(unittest.TestCase):
         except:
             pass
 
-    @unittest.skip("skipping")
+    # @unittest.skip("skipping")
     def test_save_secret(self):
         secret_1 = client.GriffinSecret(
             id = 42,
@@ -66,7 +66,7 @@ class TestPythonClient(unittest.TestCase):
         # compare the properties of the original and reconstituted secrets
         self.assertEqual(secret_1, secret_2)
 
-    @unittest.skip("skipping")
+    # @unittest.skip("skipping")
     def test_get_secrets(self):
         NOW  = datetime.datetime.now()
         THEN = datetime.datetime.now() - datetime.timedelta(minutes = 5)
@@ -122,7 +122,7 @@ class TestPythonClient(unittest.TestCase):
                                     data__domain = "example.net")
         self.assertEqual(s, [secret_3])
 
-    @unittest.skip("skipping")
+    # @unittest.skip("skipping")
     def test_save_secret(self):
         T1 = datetime.datetime.now()
         T0 = T1 - datetime.timedelta(minutes = 5)
@@ -168,21 +168,21 @@ class TestPythonClient(unittest.TestCase):
         # ensure we have the new secret stored
         self.assertEqual(sec_6.data["password"], sec_5.data["password"])
 
-    @unittest.skip("skipping")
+    # @unittest.skip("skipping")
     def test_sign_msg(self):
         MSG = "Attack at dawn!"
         signed_msg = client.sign_msg(MSG, self.keyset)
         verified = client.verify_msg(signed_msg, self.keyset)
         self.assertEqual(MSG, verified)
 
-    @unittest.skip("skipping")
+    # @unittest.skip("skipping")
     def test_encrypt_msg(self):
         MSG = "War is peace. Freedom is slavery. Ignorance is strength"
         encrypted_msg = client.encrypt_msg(MSG, self.keyset)
         decrypted_msg = client.decrypt_msg(encrypted_msg, self.keyset)
         self.assertEqual(MSG, decrypted_msg)
 
-    @unittest.skip("skipping")
+    # @unittest.skip("skipping")
     def test_register_user(self):
         resp = json.loads(client.register_user(self.keyset))
         # test that we successfully registered the user
