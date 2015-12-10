@@ -92,8 +92,23 @@ class GriffinSecret(object):
         self.schema = schema
         self.updated = updated
         self.data = data
+
+    @classmethod
+    def deserialize(cls, obj, keyset):
+        secret = cls()
+        for name, value in obj.iteritems():
+            if name == "gid":
+                continue
+            if name == "data":
+                value = json.loads(decrypt_msg(base64.b64decode(value), keyset))
+            setattr(secret, name, value)
+        return secret
+
     # serialize for sending to server
-    def serialize(self):
+    #
+    # args: GriffinKeySet keyset
+    # returns: dict serialized secret
+    def serialize(self, keyset):
         now = datetime.datetime.now()
         updated = datetime.datetime.strptime(self.updated, "%Y-%m-%d %H:%M:%S")
         delta = now - updated
@@ -101,7 +116,9 @@ class GriffinSecret(object):
             "id": self.id,
             "key_id": self.key_id,
             "schema": self.schema,
-            "data": self.data,
+            "data": base64.b64encode(
+                encrypt_msg(json.dumps(self.data), keyset)
+            ),
             "age": int(delta.total_seconds())
         }
 
@@ -110,8 +127,8 @@ class GriffinSecret(object):
         props = {}
         for k, v in self.__dict__.iteritems():
             # don't display the data attribute
-            if k == "data":
-                continue
+            # if k == "data":
+            #     continue
             props[k] = v
         return str(props)
     def __repr__(self):
@@ -468,7 +485,7 @@ def send_secrets(age, keyset):
     # create time offset based on specified age
     since = datetime.datetime.now() - datetime.timedelta(seconds = age)
     data = json.dumps({
-        "secrets": [s.serialize() for s in
+        "secrets": [s.serialize(keyset) for s in
                     keyset.get_secrets(updated__gt =
                                        since.strftime("%Y-%m-%d %H:%M:%S"))]
     })
@@ -479,7 +496,7 @@ def request_secrets(age, keyset):
     # TODO create shortcut for requesting all secrets
     url = "%s://%s/%s/secret/%s/" % (HTTP_SCHEME, GRIFFIN_HOST, GRIFFIN_PATH, age)
     # TODO encrypt data :-)
-    return http_request("GET", url, keyset = keyset)
+    return json.loads(http_request("GET", url, keyset = keyset))
 
 def main(args):
     # probably want to factor this and other related items into a utils module

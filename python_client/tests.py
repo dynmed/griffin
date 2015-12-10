@@ -223,16 +223,15 @@ class TestPythonClient(unittest.TestCase):
         )
         self.keyset.save_secret(secret_1)
 
-        # TODO not sure this is actually necessary for this test
-        # tell the client to send any secrets updated in the last 5 minutes
-        client.send_secrets(600, self.keyset)
-
         # test that we can sync secrets between two clients
         sync_code = self.keyset.wrap_keys()
 
         # create second client: same user account, different keyset
         if not os.path.exists("/tmp/keyset_2"):
             os.makedirs("/tmp/keyset_2")
+
+        # tell the client to send any secrets updated in the last 5 minutes
+        client.send_secrets(600, self.keyset)
 
         keyset_2 = client.generate_keyset("/tmp/keyset_2", self.keyset.email)
 
@@ -242,7 +241,13 @@ class TestPythonClient(unittest.TestCase):
 
         # request existing secrets from server
         secrets = client.request_secrets(600, keyset_2)
-        print "[INFO] secrets: %s" % secrets
+
+        # test that we got back the same secret from the server
+        secret_2 = client.GriffinSecret.deserialize(secrets[0], keyset_2)
+        keyset_2.save_secret(secret_2)
+
+        # test that the second client has the same secrets as the first client
+        self.assertEqual(self.keyset.secrets, keyset_2.secrets)
 
         # delete the second keyset (first one gets cleaned up by tearDown)
         keyset_2.delete_from_disk()

@@ -276,9 +276,6 @@ class Secret extends Route {
 
     // create or update secrets
     public function post($trans) {
-        // check signature on request
-        parent::authorize($trans);
-
         // TODO property_exists pattern should be factored out and centralized
         // validate that `secrets` were sent and were formatted as an array
         if (!property_exists($trans->request_data, "secrets")) {
@@ -482,7 +479,7 @@ class User extends Route {
 class Sync extends Route {
 
     public function get($trans) {
-        $stmt = $this->mysqli->prepare("SELECT data FROM sync WHERE uid=?");
+        $stmt = $this->mysqli->prepare("SELECT `data` FROM `sync` WHERE `uid`=?");
         // bind and fetch the requested record
         $uid = (int) $trans->request_uid;
         $stmt->bind_param("i", $uid);
@@ -494,6 +491,10 @@ class Sync extends Route {
         if ($stmt->fetch()) {
             $trans->response_code = 200;
             $trans->response_body = json_encode( array("data" => $data) );
+            // delete the synced keys
+            $stmt = $this->mysqli->prepare("DELETE FROM `sync` WHERE `uid`=?");
+            $stmt->bind_param("i", $uid);
+            $stmt->execute();
             return;
         }
         // there was a problem fetching the requested data
