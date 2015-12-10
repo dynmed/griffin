@@ -489,13 +489,11 @@ def send_secrets(age, keyset):
                     keyset.get_secrets(updated__gt =
                                        since.strftime("%Y-%m-%d %H:%M:%S"))]
     })
-    # TODO encrypt data :-)
     return http_request("POST", url, data = data, keyset = keyset)
 
 def request_secrets(age, keyset):
     # TODO create shortcut for requesting all secrets
     url = "%s://%s/%s/secret/%s/" % (HTTP_SCHEME, GRIFFIN_HOST, GRIFFIN_PATH, age)
-    # TODO encrypt data :-)
     return json.loads(http_request("GET", url, keyset = keyset))
 
 def main(args):
