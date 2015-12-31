@@ -1,222 +1,239 @@
-<html>
-<head>
-<link rel="stylesheet" href="foundation.css" />
-<script src="sodium.min.js"></script>
-<head>
-<body>
+<!doctype html>
+<html class="no-js" lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" href="foundation-5/css/foundation.css" />
+    <script src="foundation-5/js/vendor/modernizr.js"></script>
+  </head>
 
-  <div class="row">
-    <h4>Key Generation</h4>
-    <div class="large-12 columns">
-      <div class="row panel">
-	<div class="row">
-	  <div class="large-12 columns">
-	    <h5>Signing Keys</h5>
-	  </div>
-	</div>
-	<div class="large-4 columns text-center">
-	  <a href="#genkey" id="generate-signing-keys" class="button tiny radius">Generate Keypair</a>
-	</div>
+  <body>
 
-	<div class="large-4 columns">
-	  <label>Public Key
-	    <input type="text" id="signing-key-public" />
-	  </label>
-	</div>
+    <div class="row">&nbsp;</div>
 
-	<div class="large-4 columns">
-	  <label>Private Key
-	    <input type="text" id="signing-key-private" />
-	  </label>
-	</div>
-
-	<div class="row">
-	  <div class="large-12 columns">
-	    <h5>Encryption Key</h5>
-	  </div>
-	</div>
-	<div class="large-4 columns text-center">
-	  <a href="#genkey" id="generate-encryption-key" class="button tiny radius">Generate Key</a>
-	</div>
-
-	<div class="large-4 columns">
-	  <label>Private Key
-	    <input type="text" id="encryption-key-private" />
-	  </label>
-	</div>
-
-	<div class="large-4 columns">
-	  <label>Nonce
-	    <input type="text" id="nonce" />
-	  </label>
-	</div>
+    <div class="row hide">
+      <h4>Sites</h4>
+      <div class="large-12 columns">
+        <div class="row panel">
+          <table id="sites">
+            <thead>
+              <tr>
+                <th>Site</th>
+                <th>Username</th>
+              </tr>
+            </thead>
+            <tbody>
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
-  </div>
 
-  <div class="row">
-    <h4>Signing</h4>
-    <div class="large-12 columns">
-      <div class="row panel">
-	<div class="large-4 columns text-center">
-	  <a href="#sign" id="sign-msg" class="button tiny radius">Sign Message</a>
-	</div>
-
-	<div class="large-4 columns">
-	  <label>Message
-	    <input type="text" id="signing-message" />
-	  </label>
-	</div>
-
-	<div class="large-4 columns">
-	  <label>Signature
-	    <input type="text" id="signature" />
-	  </label>
-	</div>
+    <div class="row hide" id="authentication">
+      <div class="medium-6 medium-centered columns">
+        <div class="panel radius">
+          <form action="#">
+            <h4 class="text-center">Log in to access your account</h4>
+            <label>Email:
+              <input type="text" id="username" placeholder="name@example.com" />
+            </label>
+            <label>Passphrase:
+              <input type="password" id="master-passphrase" placeholder="Your complex passphrase"/>
+            </label>
+            <label>
+              <a id="login-submit" href="#" class="button expand">Submit</a>
+            </label>
+            <p><a href="#" id="show-registration">Register a new account</a></p>
+          </form>
+        </div>
       </div>
     </div>
-  </div>
+    
 
-  <div class="row">
-    <h4>Verification</h4>
-    <div class="large-12 columns">
-      <div class="row panel">
-	<div class="large-4 columns text-center">
-	  <a href="#verify" id="verify-sig" class="button tiny radius">Verify Signature</a>
-	</div>
-
-	<div class="large-4 columns">
-	  <label>Original Message
-	    <input type="text" id="orig-message" />
-	  </label>
-	</div>
-
-	<div class="large-4 columns">
-	</div>
-      </div>
+    <div class="row hide" id="registration">
+      <div class="medium-6 medium-centered columns panel radius">
+        <form action="#">
+          <div class="row">
+            <div class="large-12 columns">
+              <h4 class="text-center">Register a new account</h4>
+            </div>
+          </div>
+          <div class="row">
+            <div class="large-12 columns">
+              <label id="username-reg-lbl" for="username-reg">Email:
+                <input type="text" id="username-reg" placeholder="name@example.com" />
+              </label>
+              <small id="username-reg-err"></small>
+            </div>
+          </div>
+          <div class="row">
+            <div class="large-12 columns">
+              <label id="master-passphrase-reg-lbl"
+                     for="master-passphrase-reg">Passphrase:
+                <input type="password" id="master-passphrase-reg"
+                       placeholder="Your complex passphrase"/>
+              </label>
+              <small id="master-passphrase-reg-err"></small>
+            </div>
+          </div>
+          <div class="row">
+            <div class="large-12 columns">
+              <label id="master-passphrase-reg-2-lbl"
+                     for="master-passphrase-reg-2">Repeat Passphrase:
+                <input type="password" id="master-passphrase-reg-2"
+                       placeholder="Your complex passphrase again"/>
+              </label>
+              <small id="master-passphrase-reg-2-err"></small>
+            </div>
+          </div>
+          <div class="row">
+            <div class="large-12 columns">
+              <label>
+                <a id="registration-submit" href="#" class="button expand">Submit</a>
+              </label>
+              <p><a href="#" id="show-authentication">I already have an account</a></p>
+            </div>
+          </div>
+        </form>
+      </div><!-- .medium-6 medium-centered columns panel radius -->
     </div>
-  </div>
+    
+    <!-- TODO download minimal set of foundation components:
+         http://foundation.zurb.com/sites/download.html/
+      -->
+    <script src="foundation-5/js/vendor/jquery.js"></script>
+    <script src="foundation-5/js/foundation.min.js"></script>
+    <script src="sodium.min.js"></script>
+    <script src="client.js"></script>
+    <script>
+// shortcut for document.getElementById
+var elemById = function(id) { return document.getElementById(id); };
 
-  <div class="row">
-    <h4>Encryption</h4>
-    <div class="large-12 columns">
-      <div class="row panel">
-	<div class="large-4 columns text-center">
-	  <a href="#encrypt" id="encrypt-msg" class="button tiny radius">Encrypt Message</a>
-	</div>
-
-	<div class="large-4 columns">
-	  <label>Message
-	    <input type="text" id="encryption-message" />
-	  </label>
-	</div>
-
-	<div class="large-4 columns">
-	  <label>Ciphertext
-	    <input type="text" id="ciphertext" />
-	  </label>
-	</div>
-      </div>
-    </div>
-  </div>
-
-  <div class="row">
-    <h4>Decryption</h4>
-    <div class="large-12 columns">
-      <div class="row panel">
-	<div class="large-4 columns text-center">
-	  <a href="#decrypt" id="decrypt-msg" class="button tiny radius">Decrypt Message</a>
-	</div>
-
-	<div class="large-4 columns">
-	  <label>Plaintext
-	    <input type="text" id="plaintext" />
-	  </label>
-	</div>
-
-	<div class="large-4 columns">
-	</div>
-      </div>
-    </div>
-  </div>
-
-  <div class="row">&nbsp;</div>
-
-<script>
-// quick DOM element access
-function $(selector, el) {
-    if (!el) {el = document;}
-    return el.querySelector(selector);
+// display table of stored secrets
+function displaySecrets(sites) {
+    var newTbody = document.createElement("tbody");
+    for (var i = 0 ; i < sites.length ; i++) {
+        var row = newTbody.insertRow();
+        var dCell = row.insertCell();
+        var domain = document.createTextNode(sites[i]["domain"]);
+        dCell.appendChild(domain);
+        var uCell = row.insertCell();
+        var username = document.createTextNode(sites[i]["username"]);
+        uCell.appendChild(username);
+    }
+    var oldTbody = elemById("sites").getElementsByTagName("tbody")[0];
+    oldTbody.parentNode.replaceChild(newTbody, oldTbody);
 }
 
-function bytes_to_b64(bytes) {
-    return btoa(String.fromCharCode.apply(null, bytes));
+// destroy session and display log in form
+// TODO destroy existing session
+function authenticateUser(griffin) {
+    var session = griffin.session;
+    // TODO null master passphrase out after timeout
+    session.username = elemById("username").value;
+    session.masterPassphrase = elemById("master-passphrase").value;
+
+    // attempt to decrypt keyset with master passphrase
+    griffin.loadKeys();
 }
 
-function b64_to_bytes(b64) {
-    return new Uint8Array(atob(b64).split("").map(function(c) {
-	return c.charCodeAt(0);
-    }));
-}
+function registerUser(griffin) {
+    // container for validation errors
+    var errors = {};
 
-function generate_signing_keys() {
-    var keypair = sodium.crypto_sign_keypair();
-    $("#signing-key-public").value = bytes_to_b64(keypair.publicKey);
-    $("#signing-key-private").value = bytes_to_b64(keypair.privateKey);
-}
-$("#generate-signing-keys").onclick = generate_signing_keys;
+    // TODO better email validation
+    var email = elemById("username-reg").value;
+    if (!email.length) {
+        errors["username-reg"] = "Email address is required.";
+    }
 
-function generate_encryption_key() {
-    var key = sodium.randombytes_buf(sodium.crypto_box_SECRETKEYBYTES);
-    $("#encryption-key-private").value = bytes_to_b64(key);
-    var nonce = sodium.randombytes_buf(sodium.crypto_box_NONCEBYTES);
-    $("#nonce").value = bytes_to_b64(nonce);
-}
-$("#generate-encryption-key").onclick = generate_encryption_key;
+    // validate passphrase
+    var phrase1 = elemById("master-passphrase-reg").value;
+    var phrase2 = elemById("master-passphrase-reg-2").value;
+    if (!phrase1.length) {
+        errors["master-passphrase-reg"] = "Passphrase is required.";
+    }
+    else if (phrase1 !== phrase2) {
+        errors["master-passphrase-reg-2"] = "Your passphrase does not match.";
+    }
 
-function sign_msg() {
-    var msg = $("#signing-message").value;
-    var signing_key = b64_to_bytes($("#signing-key-private").value);
-    var signed_msg = sodium.crypto_sign(msg, signing_key);
-    $("#signature").value = bytes_to_b64(signed_msg);
-}
-$("#sign-msg").onclick = sign_msg;
+    // prevent registration if there were validation errors
+    if (Object.keys(errors).length) {
+        showRegistrationErrors(errors);
+        return;
+    }
 
-function verify_signature() {
-    var signed_msg = b64_to_bytes($("#signature").value);
-    var verify_key = b64_to_bytes($("#signing-key-public").value);
+    // no validation errors so clear the UI of error messages
+    hideRegistrationErrors();
+
+    // create the new keyset
+    var session = griffin.session;
+    session.username = elemById("username-reg").value;
+    session.masterPassphrase = phrase1;
+    session.active = true;
+    // generate encryption and signing keys
     try {
-	var verified = sodium.crypto_sign_open(signed_msg, verify_key);
-	$("#orig-message").value = String.fromCharCode.apply(null, verified);
+        griffin.generateKeys(email);
     }
-    catch (e) {
-	$("#orig-message").value = "Invalid Signature";
-    }	
+    catch(e) {
+        alert("problem generating keys");
+    }
 }
-$("#verify-sig").onclick = verify_signature;
 
-function encrypt_msg() {
-    var msg = $("#encryption-message").value;
-    var key = b64_to_bytes($("#encryption-key-private").value);
-    var nonce = b64_to_bytes($("#nonce").value);
-    var ciphertext = sodium.crypto_secretbox_easy(msg, nonce, key);
-    $("#ciphertext").value = bytes_to_b64(ciphertext);
+// TODO
+function hideRegistrationErrors() {
+    jQuery("small.error").text("");
+    jQuery("label.error, small.error").removeClass("error");
 }
-$("#encrypt-msg").onclick = encrypt_msg;
 
-function decrypt_msg() {
-    var ciphertext = b64_to_bytes($("#ciphertext").value);
-    var key = b64_to_bytes($("#encryption-key-private").value);
-    var nonce = b64_to_bytes($("#nonce").value);
-    try {
-	var plaintext = sodium.crypto_secretbox_open_easy(ciphertext, nonce, key);
-	$("#plaintext").value = String.fromCharCode.apply(null, plaintext);
-    }
-    catch (e) {
-	$("#plaintext").value = "Decryption Failed";
+function showRegistrationErrors(errors) {
+    // clear any existing errors first
+    hideRegistrationErrors();
+
+    for (var field in errors) {
+        if (errors.hasOwnProperty(field)) {
+            elemById(field + "-lbl").className = "error";
+            elemById(field + "-err").className = "error";
+            elemById(field + "-err").textContent = errors[field];
+        }
     }
 }
-$("#decrypt-msg").onclick = decrypt_msg;
-</script>
-</body>
+
+// TODO don't need to keep re-adding all these event handlers; add them in one function
+
+function doLoginPrompt(griffin) {
+    elemById("authentication").style.display = "block";
+    // set up handler for login form submit
+    elemById("login-submit").onclick = function() {
+        authenticateUser(griffin);
+    };
+    // set up handler for registration link
+    elemById("show-registration").onclick = function() {
+        elemById("authentication").style.display = "none";
+        elemById("registration").style.display = "block";
+        // set up handler for registration submission
+        elemById("registration-submit").onclick = function() {
+            registerUser(griffin);
+        };
+    };
+    // set up handler for existing user link
+    elemById("show-authentication").onclick = function() {
+        // take user back to existing login form
+        elemById("registration").style.display = "none";
+        elemById("authentication").style.display = "block";
+    };
+}
+
+
+var griffin = new GriffinKeySet();
+doLoginPrompt(griffin);
+
+    /*
+    var sites = [{"domain": "example.com", "username": "alice"},
+                 {"domain": "example.net", "username": "robert"}];
+
+    displaySecrets(sites);
+    */
+
+    </script>
+  </body>
 </html>
