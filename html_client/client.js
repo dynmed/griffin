@@ -39,6 +39,11 @@ EncryptedMessage.prototype = {
     }
 };
 
+// TODO keep track of secret age so we can prompt for password rotation
+function GriffinSecret() {
+
+}
+
 // wrapper object to contain signing keys, encryption keys, and all the encrypted
 // secrets that we can pickle and store to the filesystem
 function GriffinKeySet() {
@@ -166,5 +171,17 @@ GriffinKeySet.prototype = {
         return sodium.crypto_secretbox_open_easy(encrypted.getCiphertext(),
                                                  encrypted.getNonce(),
                                                  key);
+    },
+
+    /* retrieve a secret by ID
+     *
+     * args: number id
+     * returns: GriffinSecret, null if not found
+     */
+    getSecret: function(id) {
+        if (!this.secrets.hasOwnProperty(id)) {
+            return null;
+        }
+        return this.secrets[id];
     }
 };

@@ -3,6 +3,8 @@
   <head>
     <meta charset="utf-8" />
     <link rel="stylesheet" href="foundation-5/css/foundation.css" />
+    <link rel="stylesheet" href="main.css" />
+
     <script src="foundation-5/js/vendor/modernizr.js"></script>
   </head>
 
@@ -10,20 +12,34 @@
 
     <div class="row">&nbsp;</div>
 
-    <div class="row hide">
-      <h4>Sites</h4>
+    <div class="row hide" id="secrets">
+      <h4>Secret Vault</h4>
       <div class="large-12 columns">
         <div class="row panel">
-          <table id="sites">
-            <thead>
-              <tr>
-                <th>Site</th>
-                <th>Username</th>
-              </tr>
-            </thead>
-            <tbody>
-            </tbody>
-          </table>
+
+          <div class="large-3 columns"><!-- filters -->
+            <div class="row">
+              <div class="large-12 columns">
+                <label>Search
+                  <input type="text" id="secret-search" />
+                </label>
+              </div>
+            </div>
+          </div><!-- end filters -->
+
+          <div class="large-9 columns"><!-- secret display -->
+            <table>
+              <thead>
+                <tr>
+                  <th>Site</th>
+                  <th>Username</th>
+                </tr>
+              </thead>
+              <tbody>
+              </tbody>
+            </table>
+          </div><!-- end secret display -->
+
         </div>
       </div>
     </div>
@@ -37,7 +53,7 @@
               <input type="text" id="username" placeholder="name@example.com" />
             </label>
             <label>Passphrase:
-              <input type="password" id="master-passphrase" placeholder="Your complex passphrase"/>
+              <input type="password" id="master-passphrase" value="password" placeholder="Your complex passphrase"/>
             </label>
             <label>
               <a id="login-submit" href="#" class="button expand">Submit</a>
@@ -109,19 +125,42 @@
 var elemById = function(id) { return document.getElementById(id); };
 
 // display table of stored secrets
-function displaySecrets(sites) {
+function displaySecrets(secrets) {
+    // hide the login and registration forms
+    elemById("registration").style.display = "none";
+    elemById("authentication").style.display = "none";
+    // make sure the secret table is on display
+    elemById("secrets").style.display = "block";
+
     var newTbody = document.createElement("tbody");
-    for (var i = 0 ; i < sites.length ; i++) {
+    for (var i in secrets) {
         var row = newTbody.insertRow();
+        // store the index value on the DOM node so we can reference this secret
+        // from the UI
+        row.dataset.index = i;
+        // add event handler to copy password to clipboard
+        row.onclick = function() {
+            selectRow(this);
+        };
         var dCell = row.insertCell();
-        var domain = document.createTextNode(sites[i]["domain"]);
+        var domain = document.createTextNode(secrets[i]["domain"]);
         dCell.appendChild(domain);
         var uCell = row.insertCell();
-        var username = document.createTextNode(sites[i]["username"]);
+        var username = document.createTextNode(secrets[i]["username"]);
         uCell.appendChild(username);
     }
-    var oldTbody = elemById("sites").getElementsByTagName("tbody")[0];
+    var oldTbody = elemById("secrets").getElementsByTagName("tbody")[0];
     oldTbody.parentNode.replaceChild(newTbody, oldTbody);
+}
+
+function selectRow(row) {
+    // deselect the other rows
+    var rows = row.parentElement.getElementsByTagName("tr");
+    for (var i = 0 ; i < rows.length ; i++) {
+        rows[i].className = rows[i].className.replace(/\bselected\b/,'');
+    }
+    // select the new row
+    row.className = "selected";
 }
 
 // destroy session and display log in form
@@ -134,6 +173,9 @@ function authenticateUser(griffin) {
 
     // attempt to decrypt keyset with master passphrase
     griffin.loadKeys();
+
+    // create the table to display stored secrets
+    displaySecrets(griffin.secrets);
 }
 
 function registerUser(griffin) {
@@ -179,7 +221,6 @@ function registerUser(griffin) {
     }
 }
 
-// TODO
 function hideRegistrationErrors() {
     jQuery("small.error").text("");
     jQuery("label.error, small.error").removeClass("error");
@@ -199,7 +240,6 @@ function showRegistrationErrors(errors) {
 }
 
 // TODO don't need to keep re-adding all these event handlers; add them in one function
-
 function doLoginPrompt(griffin) {
     elemById("authentication").style.display = "block";
     // set up handler for login form submit
@@ -223,16 +263,29 @@ function doLoginPrompt(griffin) {
     };
 }
 
+function setupEventHandlers(griffin) {
+    // add handler for copy events
+    document.addEventListener("copy", function(e) {
+        var selected = document.querySelector("tr.selected");
+        // bail early if there is not a row selected
+        if (!selected) {
+            return;
+        }
+        // put the secret data on the clipboard
+        // TODO make this more generic so the secret doesn't need a "password"
+        // attribute to be placed on the clipboard
+        e.clipboardData.setData(
+            "text/plain",
+            griffin.getSecret(selected.dataset.index).password
+        );
+        // TODO set timer to clear the clipboard
+        e.preventDefault();
+    });
+}
 
 var griffin = new GriffinKeySet();
+setupEventHandlers(griffin);
 doLoginPrompt(griffin);
-
-    /*
-    var sites = [{"domain": "example.com", "username": "alice"},
-                 {"domain": "example.net", "username": "robert"}];
-
-    displaySecrets(sites);
-    */
 
     </script>
   </body>
