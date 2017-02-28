@@ -379,88 +379,6 @@ function registrationErrors(errors) {
     }    
 }
 
-// TODO don't need to keep re-adding all these event handlers;
-// add them in one function
-function doLoginPrompt(griffin) {
-    // display login form
-    displayUIView("authentication");
-
-    // set up handler for login form submit
-    jQuery("#login-submit").click(function() {
-        authenticateUser(griffin);
-    });
-
-    // set up handler for registration link
-    jQuery("#show-registration").click(function() {
-        // display registration form
-        displayUIView("registration");
-        
-        // set up handler for registration submission
-        jQuery("#registration-submit").click(function() {
-            registerUser(griffin);
-        });
-    });
-
-    // set up handler for existing user link
-    jQuery("#show-authentication").click(function() {
-        // take user back to existing login form
-        displayUIView("authentication");
-    });
-
-    // set up handlers for add new secret form
-    jQuery("#add-secret-submit").click(function() {
-        addSecret(griffin);
-    });
-    jQuery("#add-secret-form").on("closed.zf.reveal", function() {
-        // reset the form when the dialog is closed
-        jQuery(this).find("input").val("");
-        addSecretErrors(null);
-    });
-    // write config from keyset to form fields
-    jQuery("#add-secret-form").on("open.zf.reveal", function() {
-        jQuery.each(
-            ["generate-lower", "generate-upper", "generate-numbers",
-             "generate-special", "generate-length", "generate-exclude-similar"],
-            function() {
-                var value = griffin.config[this];
-                if (value === true) {
-                    jQuery("#" + this).prop("checked", true);
-                }
-                else {
-                    jQuery("#" + this).val(value);
-                }
-            });
-    });
-    // hook up handler to show/hide password fields
-    jQuery("#toggle-show-secret").click(function() {
-        var masked = (jQuery("#add-password-1").attr("type") == "password") ?
-                     true : false;
-        // toggle the shown/hidden state of the password fields
-        jQuery("#add-password-1,#add-password-2").attr(
-            "type",
-            (masked) ? "text" : "password"
-        );
-        // toggle the button state
-        jQuery(this).toggleClass("alert");
-    });
-    jQuery("#toggle-password-options").click(function() {
-        jQuery("#password-options").slideToggle();
-    });
-    // add handlers for password options
-    jQuery("#password-options").find("input").change(function() {
-        var name = jQuery(this).attr("id");
-        var value = (jQuery(this).attr("type") == "checkbox") ?
-                    jQuery(this).prop("checked") : parseInt(jQuery(this).val());
-        griffin.config[name] = value;
-        griffin.storeKeys();
-    });
-    // handler for generate password button
-    jQuery("#generate-secret").click(function() {
-        var password = griffin.generatePassword();
-        jQuery("#add-password-1,#add-password-2").val(password);
-    });
-}
-
 function addSecret(griffin) {
     // container for validation errors
     var errors = {};
@@ -562,11 +480,87 @@ function setupEventHandlers(griffin) {
         // TODO set timer to clear the clipboard
         e.preventDefault();
     });
+
+    // set up handler for login form submit
+    jQuery("#login-submit").click(function() {
+        authenticateUser(griffin);
+    });
+
+    // set up handler for registration link
+    jQuery("#show-registration").click(function() {
+        // display registration form
+        displayUIView("registration");
+        // set up handler for registration submission
+        jQuery("#registration-submit").click(function() {
+            registerUser(griffin);
+        });
+    });
+
+    // set up handler for existing user link
+    jQuery("#show-authentication").click(function() {
+        // take user back to existing login form
+        displayUIView("authentication");
+    });
+
+    // set up handlers for add new secret form
+    jQuery("#add-secret-submit").click(function() {
+        addSecret(griffin);
+    });
+    jQuery("#add-secret-form").on("closed.zf.reveal", function() {
+        // reset the form when the dialog is closed
+        jQuery(this).find("input").val("");
+        addSecretErrors(null);
+    });
+    // write config from keyset to form fields
+    jQuery("#add-secret-form").on("open.zf.reveal", function() {
+        jQuery.each(
+            ["generate-lower", "generate-upper", "generate-numbers",
+             "generate-special", "generate-length", "generate-exclude-similar"],
+            function() {
+                var value = griffin.config[this];
+                if (value === true) {
+                    jQuery("#" + this).prop("checked", true);
+                }
+                else {
+                    jQuery("#" + this).val(value);
+                }
+            });
+    });
+    // hook up handler to show/hide password fields
+    jQuery("#toggle-show-secret").click(function() {
+        var masked = (jQuery("#add-password-1").attr("type") == "password") ?
+                     true : false;
+        // toggle the shown/hidden state of the password fields
+        jQuery("#add-password-1,#add-password-2").attr(
+            "type",
+            (masked) ? "text" : "password"
+        );
+        // toggle the button state
+        jQuery(this).toggleClass("alert");
+    });
+    jQuery("#toggle-password-options").click(function() {
+        jQuery("#password-options").slideToggle();
+    });
+    // add handlers for password options
+    jQuery("#password-options").find("input").change(function() {
+        var name = jQuery(this).attr("id");
+        var value = (jQuery(this).attr("type") == "checkbox") ?
+                    jQuery(this).prop("checked") : parseInt(jQuery(this).val());
+        griffin.config[name] = value;
+        griffin.storeKeys();
+    });
+    // handler for generate password button
+    jQuery("#generate-secret").click(function() {
+        var password = griffin.generatePassword();
+        jQuery("#add-password-1,#add-password-2").val(password);
+    });
 }
 
 var griffin = new GriffinKeySet();
 setupEventHandlers(griffin);
-doLoginPrompt(griffin);
+
+// display login form
+displayUIView("authentication");
 
 jQuery(document).foundation();
     </script>
