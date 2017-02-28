@@ -2,3 +2,28 @@ tr.selected {
     background: #ECFAFF none repeat scroll 0% 0% !important;
     color: #222;
 }
+#secrets-table {
+    cursor: default;
+    border: 1px solid rgba(10, 10, 10, 0.25); /* copied from .callout */
+}
+th.ui-control-narrow, td.ui-control-narrow {
+    width: 5%;
+    text-align: center;
+}
+td.ui-control-narrow {
+    cursor: pointer;
+}
+.password-container {
+    position: relative;
+}
+.password-container i {
+    position: absolute;
+    font-size: 2rem;
+    right: 0.5rem;
+    top: 50%;
+    transform: translateY(-50%);
+    cursor: pointer;
+}
+i.alert {
+    color: #cc4b37; /* copied from button.alert */
+}

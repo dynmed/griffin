@@ -88,7 +88,7 @@ opener = None
 class GriffinSecret(object):
     def __init__(self, id=None, key_id=None, schema=None, updated=None, data=None):
         self.id = id
-        self.key_id = key_id
+        self.key_id = key_id # TODO why do we need this?
         self.schema = schema
         self.updated = updated
         self.data = data
@@ -97,7 +97,7 @@ class GriffinSecret(object):
     def deserialize(cls, obj, keyset):
         secret = cls()
         for name, value in obj.iteritems():
-            if name == "gid":
+            if name == "gid": # TODO why do we need this?
                 continue
             if name == "data":
                 value = json.loads(decrypt_msg(base64.b64decode(value), keyset))

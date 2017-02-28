@@ -2,10 +2,9 @@
 <html class="no-js" lang="en">
   <head>
     <meta charset="utf-8" />
-    <link rel="stylesheet" href="foundation-5/css/foundation.css" />
+    <link rel="stylesheet" href="foundation-6/css/foundation.css" />
+    <link rel="stylesheet" href="foundation-6/foundation-icons/foundation-icons.css" />
     <link rel="stylesheet" href="main.css" />
-
-    <script src="foundation-5/js/vendor/modernizr.js"></script>
   </head>
 
   <body>
@@ -15,7 +14,7 @@
     <div class="row hide" id="secrets">
       <h4>Secret Vault</h4>
       <div class="large-12 columns">
-        <div class="row panel">
+        <div class="row callout">
 
           <div class="large-3 columns"><!-- filters -->
             <div class="row">
@@ -25,28 +24,105 @@
                 </label>
               </div>
             </div>
+	    <div class="row">
+	      <div class="large-12 columns">
+		<a href="#" class="button small" id="add-secret"
+                   data-open="add-secret-form">
+                  Add Secret
+                </a>
+	      </div>
+	    </div>
           </div><!-- end filters -->
 
           <div class="large-9 columns"><!-- secret display -->
-            <table>
+            <table id="secrets-table" class="hover">
               <thead>
                 <tr>
                   <th>Site</th>
                   <th>Username</th>
+                  <th class="ui-control-narrow">&nbsp;</th>
+                  <th class="ui-control-narrow">&nbsp;</th>
                 </tr>
               </thead>
-              <tbody>
-              </tbody>
+              <tbody></tbody>
             </table>
           </div><!-- end secret display -->
 
         </div>
       </div>
-    </div>
+    </div><!-- #secrets -->
+
+    <div class="reveal" id="add-secret-form" data-reveal>
+      <h4>Add New Secret</h4>
+
+      <div class="callout">
+        <form action="#" data-abide novalidate>
+          <input id="add-secret-id" type="hidden" />
+          <div data-abide-error role="alert" class="alert callout" style="display: none">
+            <p><i class="fi-alert"></i> Please fix the errors below.</p>
+          </div>
+          <label id="add-domain-lbl" for="add-domain">Domain:
+            <input type="text" id="add-domain" />
+          </label>
+          <span class="form-error" id="add-domain-err"></span>
+          <label id="add-username-lbl" for="add-username">Username:
+            <input type="text" id="add-username" />
+          </label>
+          <span class="form-error" id="add-username-err"></span>
+          <label id="add-password-1-lbl" for="add-password-1">Password:
+            <div class="password-container">
+              <input type="password" id="add-password-1" />
+              <i class="fi-eye" id="toggle-show-secret"></i>
+            </div>
+          </label>
+          <span class="form-error" id="add-password-1-err"></span>
+          <label id="add-password-2-lbl" for="add-password-2">Repeat Password:
+            <input type="password" id="add-password-2" />
+          </label>
+          <span class="form-error" id="add-password-2-err"></span>
+          <div class="row">
+            <a id="generate-secret" href="#" class="button secondary">
+              Generate
+            </a>
+            <a id="add-secret-submit" href="#" class="button float-right">
+              Save
+            </a>
+          </div>
+          <small>
+            <a href="#" id="toggle-password-options">Password Options</a>
+          </small>
+          <div class="row" id="password-options" style="display: none">
+            <fieldset class="large-12 columns fieldset">
+              <input id="generate-lower" type="checkbox">
+              <label for="generate-lower">Lowercase</label>
+              <input id="generate-upper" type="checkbox">
+              <label for="generate-upper">Uppercase</label>
+              <input id="generate-numbers" type="checkbox">
+              <label for="generate-numbers">Numbers</label>
+              <input id="generate-special" type="checkbox">
+              <label for="generate-special">Special</label>
+              <div class="row">
+                <div class="small-2 columns">
+                  <label for="generate-length" class="text-right middle">Length</label>
+                </div>
+                <div class="small-2 columns end">
+                  <input id="generate-length" type="number">
+                </div>
+              </div>
+            </fieldset>
+          </div>
+        </form>
+      </div>
+
+      <button class="close-button" data-close aria-label="Close modal" type="button">
+        <span aria-hidden="true">&times;</span>
+      </button>
+      
+    </div><!-- #add-secret-form -->
 
     <div class="row hide" id="authentication">
       <div class="medium-6 medium-centered columns">
-        <div class="panel radius">
+        <div class="callout">
           <form action="#">
             <h4 class="text-center">Log in to access your account</h4>
             <label>Email:
@@ -64,93 +140,120 @@
       </div>
     </div>
     
-
     <div class="row hide" id="registration">
-      <div class="medium-6 medium-centered columns panel radius">
-        <form action="#">
-          <div class="row">
-            <div class="large-12 columns">
-              <h4 class="text-center">Register a new account</h4>
+      <div class="medium-6 medium-centered columns">
+        <div class="callout">
+          <h4 class="text-center">Register a new account</h4>
+          <form action="#">
+            <div data-abide-error role="alert" class="alert callout" style="display: none">
+              <p><i class="fi-alert"></i> Please fix the errors below.</p>
             </div>
-          </div>
-          <div class="row">
-            <div class="large-12 columns">
-              <label id="username-reg-lbl" for="username-reg">Email:
-                <input type="text" id="username-reg" placeholder="name@example.com" />
-              </label>
-              <small id="username-reg-err"></small>
-            </div>
-          </div>
-          <div class="row">
-            <div class="large-12 columns">
-              <label id="master-passphrase-reg-lbl"
-                     for="master-passphrase-reg">Passphrase:
-                <input type="password" id="master-passphrase-reg"
-                       placeholder="Your complex passphrase"/>
-              </label>
-              <small id="master-passphrase-reg-err"></small>
-            </div>
-          </div>
-          <div class="row">
-            <div class="large-12 columns">
-              <label id="master-passphrase-reg-2-lbl"
-                     for="master-passphrase-reg-2">Repeat Passphrase:
-                <input type="password" id="master-passphrase-reg-2"
-                       placeholder="Your complex passphrase again"/>
-              </label>
-              <small id="master-passphrase-reg-2-err"></small>
-            </div>
-          </div>
-          <div class="row">
-            <div class="large-12 columns">
-              <label>
-                <a id="registration-submit" href="#" class="button expand">Submit</a>
-              </label>
-              <p><a href="#" id="show-authentication">I already have an account</a></p>
-            </div>
-          </div>
-        </form>
-      </div><!-- .medium-6 medium-centered columns panel radius -->
+            <label id="username-reg-lbl" for="username-reg">Email:
+              <input type="text" id="username-reg" placeholder="name@example.com" />
+            </label>
+            <span class="form-error" id="username-reg-err"></span>
+            <label id="master-passphrase-reg-lbl"
+                   for="master-passphrase-reg">Passphrase:
+              <input type="password" id="master-passphrase-reg"
+                     placeholder="Your complex passphrase"/>
+            </label>
+            <span class="form-error" id="master-passphrase-reg-err"></span>
+            <label id="master-passphrase-reg-2-lbl"
+                   for="master-passphrase-reg-2">Repeat Passphrase:
+              <input type="password" id="master-passphrase-reg-2"
+                     placeholder="Your complex passphrase again"/>
+            </label>
+            <span class="form-error" id="master-passphrase-reg-2-err"></span>
+            <label>
+              <a id="registration-submit" href="#" class="button expand">Submit</a>
+            </label>
+            <p><a href="#" id="show-authentication">I already have an account</a></p>
+          </form>
+        </div>
+      </div>
     </div>
-    
+
     <!-- TODO download minimal set of foundation components:
          http://foundation.zurb.com/sites/download.html/
       -->
-    <script src="foundation-5/js/vendor/jquery.js"></script>
-    <script src="foundation-5/js/foundation.min.js"></script>
+    <script src="foundation-6/js/vendor/jquery.js"></script>
+    <script src="foundation-6/js/vendor/what-input.js"></script>
+    <script src="foundation-6/js/vendor/foundation.js"></script>
     <script src="sodium.min.js"></script>
     <script src="client.js"></script>
-    <script>
-// shortcut for document.getElementById
-var elemById = function(id) { return document.getElementById(id); };
-
+<script>
+// navigate between UI views
+function displayUIView(view) {
+    var views = ["secrets", "authentication", "registration"];
+    for (var i = 0 ; i < views.length ; i++) {
+        // display only the view requested
+        if (views[i] != view) {
+            jQuery("#" + views[i]).addClass("hide");
+        }
+        else {
+            jQuery("#" + views[i]).removeClass("hide");
+        }
+    }
+}
+    
 // display table of stored secrets
-function displaySecrets(secrets) {
-    // hide the login and registration forms
-    elemById("registration").style.display = "none";
-    elemById("authentication").style.display = "none";
-    // make sure the secret table is on display
-    elemById("secrets").style.display = "block";
+function displaySecrets(griffin) {
+    // show the secrets UI
+    displayUIView("secrets");
+    var secrets = griffin.getSecrets();
 
     var newTbody = document.createElement("tbody");
-    for (var i in secrets) {
+    // TODO filter just on "password" type issues
+    for (var i = 0 ; i < secrets.length ; i++) {
         var row = newTbody.insertRow();
-        // store the index value on the DOM node so we can reference this secret
-        // from the UI
-        row.dataset.index = i;
+        // store the ID on the DOM node so we can reference this secret from
+        // the UI
+        row.dataset.index = secrets[i].id;
         // add event handler to copy password to clipboard
         row.onclick = function() {
             selectRow(this);
         };
         var dCell = row.insertCell();
-        var domain = document.createTextNode(secrets[i]["domain"]);
+        var domain = document.createTextNode(secrets[i]["data"]["domain"]);
         dCell.appendChild(domain);
         var uCell = row.insertCell();
-        var username = document.createTextNode(secrets[i]["username"]);
+        var username = document.createTextNode(secrets[i]["data"]["username"]);
         uCell.appendChild(username);
+        var eCell = row.insertCell();
+        eCell.className = "ui-control-narrow";
+        var edit = document.createElement("i");
+        edit.className = "fi-pencil";
+        eCell.appendChild(edit);
+        var delCell = row.insertCell();
+        delCell.className = "ui-control-narrow";
+        var del = document.createElement("i");
+        del.className = "fi-trash";
+        delCell.appendChild(del);
     }
-    var oldTbody = elemById("secrets").getElementsByTagName("tbody")[0];
+    var oldTbody = jQuery("#secrets").find("tbody")[0];
     oldTbody.parentNode.replaceChild(newTbody, oldTbody);
+
+
+    // set up handlers for secret editing UI buttons
+    jQuery("td.ui-control-narrow").on("click", function() {
+        var secretId = jQuery(this).closest("tr").data("index");
+        // edit secret
+        if (jQuery(this).find("i").hasClass("fi-pencil")) {
+            // populate "Add Secret" form with existing values
+            var existing = griffin.getSecret(secretId);
+            jQuery("#add-secret-id").val(existing.id);
+            jQuery("#add-domain").val(existing.data.domain);
+            jQuery("#add-username").val(existing.data.username);
+            jQuery("#add-password-1").val(existing.data.password);
+            jQuery("#add-password-2").val(existing.data.password);
+            jQuery("#add-secret-form").foundation("open");
+        }
+        // delete secret
+        else {
+            griffin.deleteSecret(secretId);
+            displaySecrets(griffin);
+        }
+    });
 }
 
 function selectRow(row) {
@@ -168,14 +271,16 @@ function selectRow(row) {
 function authenticateUser(griffin) {
     var session = griffin.session;
     // TODO null master passphrase out after timeout
-    session.username = elemById("username").value;
-    session.masterPassphrase = elemById("master-passphrase").value;
+    session.username = jQuery("#username").val();
+    session.masterPassphrase = jQuery("#master-passphrase").val();
 
     // attempt to decrypt keyset with master passphrase
-    griffin.loadKeys();
-
-    // create the table to display stored secrets
-    displaySecrets(griffin.secrets);
+    if (griffin.loadKeys()) {
+        displaySecrets(griffin);
+    }
+    else {
+        console.log("unable to decrypt passwords")
+    }
 }
 
 function registerUser(griffin) {
@@ -183,14 +288,14 @@ function registerUser(griffin) {
     var errors = {};
 
     // TODO better email validation
-    var email = elemById("username-reg").value;
+    var email = jQuery("#username-reg").val();
     if (!email.length) {
         errors["username-reg"] = "Email address is required.";
     }
 
     // validate passphrase
-    var phrase1 = elemById("master-passphrase-reg").value;
-    var phrase2 = elemById("master-passphrase-reg-2").value;
+    var phrase1 = jQuery("#master-passphrase-reg").val();
+    var phrase2 = jQuery("#master-passphrase-reg-2").val();
     if (!phrase1.length) {
         errors["master-passphrase-reg"] = "Passphrase is required.";
     }
@@ -198,18 +303,17 @@ function registerUser(griffin) {
         errors["master-passphrase-reg-2"] = "Your passphrase does not match.";
     }
 
+    // display any registration errors
+    registrationErrors(errors);
+
     // prevent registration if there were validation errors
     if (Object.keys(errors).length) {
-        showRegistrationErrors(errors);
         return;
     }
 
-    // no validation errors so clear the UI of error messages
-    hideRegistrationErrors();
-
     // create the new keyset
     var session = griffin.session;
-    session.username = elemById("username-reg").value;
+    session.username = jQuery("#username-reg").val();
     session.masterPassphrase = phrase1;
     session.active = true;
     // generate encryption and signing keys
@@ -219,48 +323,193 @@ function registerUser(griffin) {
     catch(e) {
         alert("problem generating keys");
     }
+
+    // show the secrets UI
+    displaySecrets(griffin);    
 }
 
-function hideRegistrationErrors() {
-    jQuery("small.error").text("");
-    jQuery("label.error, small.error").removeClass("error");
-}
+// TODO this could be merged with addSecretErrors
+function registrationErrors(errors) {
+    // clear all existing errors
+    jQuery("#registration").find("div.alert").hide();
+    jQuery("#registration").find("label").removeClass("is-invalid-label");
+    jQuery("#registration").find("span.form-error")
+                           .removeClass("is-visible")
+                           .text("");
+    if (errors == null) {
+        return;
+    }
 
-function showRegistrationErrors(errors) {
-    // clear any existing errors first
-    hideRegistrationErrors();
+    // show top level error message
+    jQuery("#registration").find("div.alert").show();
 
+    // display new error messages
     for (var field in errors) {
         if (errors.hasOwnProperty(field)) {
-            elemById(field + "-lbl").className = "error";
-            elemById(field + "-err").className = "error";
-            elemById(field + "-err").textContent = errors[field];
+            jQuery("#" + field + "-lbl").addClass("is-invalid-label");
+            jQuery("#" + field + "-err").addClass("is-visible");
+            jQuery("#" + field + "-err").text(errors[field]);
         }
-    }
+    }    
 }
 
-// TODO don't need to keep re-adding all these event handlers; add them in one function
+// TODO don't need to keep re-adding all these event handlers;
+// add them in one function
 function doLoginPrompt(griffin) {
-    elemById("authentication").style.display = "block";
+    // display login form
+    displayUIView("authentication");
+
     // set up handler for login form submit
-    elemById("login-submit").onclick = function() {
+    jQuery("#login-submit").click(function() {
         authenticateUser(griffin);
-    };
+    });
+
     // set up handler for registration link
-    elemById("show-registration").onclick = function() {
-        elemById("authentication").style.display = "none";
-        elemById("registration").style.display = "block";
+    jQuery("#show-registration").click(function() {
+        // display registration form
+        displayUIView("registration");
+        
         // set up handler for registration submission
-        elemById("registration-submit").onclick = function() {
+        jQuery("#registration-submit").click(function() {
             registerUser(griffin);
-        };
-    };
+        });
+    });
+
     // set up handler for existing user link
-    elemById("show-authentication").onclick = function() {
+    jQuery("#show-authentication").click(function() {
         // take user back to existing login form
-        elemById("registration").style.display = "none";
-        elemById("authentication").style.display = "block";
-    };
+        displayUIView("authentication");
+    });
+
+    // set up handlers for add new secret form
+    jQuery("#add-secret-submit").click(function() {
+        addSecret(griffin);
+    });
+    jQuery("#add-secret-form").on("closed.zf.reveal", function() {
+        // reset the form when the dialog is closed
+        jQuery(this).find("input").val("");
+        addSecretErrors(null);
+    });
+    // write config from keyset to form fields
+    jQuery("#add-secret-form").on("open.zf.reveal", function() {
+        jQuery.each(["generate-lower", "generate-upper", "generate-numbers",
+                     "generate-special", "generate-length"], function() {
+                         var value = griffin.config[this];
+                         if (value === true) {
+                             jQuery("#" + this).prop("checked", true);
+                         }
+                         else {
+                             jQuery("#" + this).val(value);
+                         }
+                     });
+    });
+    // hook up handler to show/hide password fields
+    jQuery("#toggle-show-secret").click(function() {
+        var masked = (jQuery("#add-password-1").attr("type") == "password") ?
+                     true : false;
+        // toggle the shown/hidden state of the password fields
+        jQuery("#add-password-1,#add-password-2").attr(
+            "type",
+            (masked) ? "text" : "password"
+        );
+        // toggle the button state
+        jQuery(this).toggleClass("alert");
+    });
+    jQuery("#toggle-password-options").click(function() {
+        jQuery("#password-options").slideToggle();
+    });
+    // add handlers for password options
+    jQuery("#password-options").find("input").change(function() {
+        var name = jQuery(this).attr("id");
+        var value = (jQuery(this).attr("type") == "checkbox") ?
+                    jQuery(this).prop("checked") : parseInt(jQuery(this).val());
+        console.log(name + ": " + value);
+        griffin.config[name] = value;
+        griffin.storeKeys();
+    });
+}
+
+function addSecret(griffin) {
+    // container for validation errors
+    var errors = {};
+
+    // read field values
+    var secretId = jQuery("#add-secret-id").val();
+    var domain = jQuery("#add-domain").val();
+    var username = jQuery("#add-username").val();
+    var password1 = jQuery("#add-password-1").val();
+    var password2 = jQuery("#add-password-2").val();
+
+    // validate field values
+    if (!domain.length) {
+        errors["add-domain"] = "Domain is required.";
+    }
+
+    if (!password1.length) {
+        errors["add-password-1"] = "Enter password.";
+    }
+
+    if (!password2.length) {
+        errors["add-password-2"] = "Enter password again.";
+    }
+    else if (password1 != password2) {
+        errors["add-password-2"] = "Passwords do not match.";
+    }
+
+    // prevent secret creation if there were validation errors
+    if (Object.keys(errors).length) {
+        addSecretErrors(errors);
+        return;
+    }
+
+    // valid submission so create the new GriffinSecret
+    var secret = new GriffinSecret({
+        domain: domain,
+        username: username,
+        password: password1
+    });
+    // if we are editing an existing secret set the ID, otherwise null
+    secret.id = (secretId != "") ? parseInt(secretId) : null;
+
+    secret.touch();
+    griffin.saveSecret(secret);
+
+    // close the form
+    jQuery("#add-secret-form").foundation("close");
+
+    // re-draw the table of secrets
+    displaySecrets(griffin);
+}
+
+// display Add Secret form validation errors
+// args: Object errors or null to clear all error messages
+function addSecretErrors(errors) {
+    // clear all existing errors
+    jQuery("#add-secret-form").find("div.alert").hide();
+    jQuery("#add-secret-form").find("label").removeClass("is-invalid-label");
+    jQuery("#add-secret-form").find("span.form-error")
+                              .removeClass("is-visible")
+                              .text("");
+
+    if (errors == null) {
+        // re-mask password fields
+        jQuery("#add-password-1,#add-password-2").attr("type", "password");
+        // reset button state
+        jQuery("#toggle-show-secret").removeClass("alert");
+        return;
+    }
+
+    // show top level error message
+    jQuery("#add-secret-form").find("div.alert").show();
+
+    // display new error messages
+    for (var field in errors) {
+        if (errors.hasOwnProperty(field)) {
+            jQuery("#" + field + "-lbl").addClass("is-invalid-label");
+            jQuery("#" + field + "-err").addClass("is-visible");
+            jQuery("#" + field + "-err").text(errors[field]);
+        }
+    }
 }
 
 function setupEventHandlers(griffin) {
@@ -276,7 +525,7 @@ function setupEventHandlers(griffin) {
         // attribute to be placed on the clipboard
         e.clipboardData.setData(
             "text/plain",
-            griffin.getSecret(selected.dataset.index).password
+            griffin.getSecret(selected.dataset.index).data.password
         );
         // TODO set timer to clear the clipboard
         e.preventDefault();
@@ -287,6 +536,7 @@ var griffin = new GriffinKeySet();
 setupEventHandlers(griffin);
 doLoginPrompt(griffin);
 
+jQuery(document).foundation();
     </script>
   </body>
 </html>
