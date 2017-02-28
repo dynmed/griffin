@@ -92,21 +92,47 @@
             <a href="#" id="toggle-password-options">Password Options</a>
           </small>
           <div class="row" id="password-options" style="display: none">
-            <fieldset class="large-12 columns fieldset">
-              <input id="generate-lower" type="checkbox">
-              <label for="generate-lower">Lowercase</label>
-              <input id="generate-upper" type="checkbox">
-              <label for="generate-upper">Uppercase</label>
-              <input id="generate-numbers" type="checkbox">
-              <label for="generate-numbers">Numbers</label>
-              <input id="generate-special" type="checkbox">
-              <label for="generate-special">Special</label>
+            <fieldset class="fieldset">
               <div class="row">
                 <div class="small-2 columns">
-                  <label for="generate-length" class="text-right middle">Length</label>
+                  <label for="generate-lower" class="text-right">Lowercase</label>
+                </div>
+                <div class="small-1 columns">
+                  <input id="generate-lower" type="checkbox">
+                </div>
+                <div class="small-2 columns">
+                  <label for="generate-upper" class="text-right">Uppercase</label>
+                </div>
+                <div class="small-1 columns">
+                  <input id="generate-upper" type="checkbox">
+                </div>
+                <div class="small-2 columns">
+                  <label for="generate-numbers" class="text-right">Numbers</label>
+                </div>
+                <div class="small-1 columns">
+                  <input id="generate-numbers" type="checkbox">
+                </div>
+                <div class="small-2 columns">
+                  <label for="generate-special" class="text-right">Special</label>
+                </div>
+                <div class="small-1 columns">
+                  <input id="generate-special" type="checkbox">
+                </div>
+              </div>
+              <div class="row">
+                <div class="small-2 columns">
+                  <label for="generate-length" class="text-right">Length</label>
+                </div>
+                <div class="small-2 columns">
+                  <input id="generate-length" type="number">
+                </div>
+                <div class="small-4 columns">
+                  <label for="generate-exclude-similar" class="text-right">
+                    Exclude lookalike characters
+                  </label>
                 </div>
                 <div class="small-2 columns end">
-                  <input id="generate-length" type="number">
+                  <input id="generate-exclude-similar" type="checkbox">
                 </div>
               </div>
             </fieldset>
@@ -392,16 +418,18 @@ function doLoginPrompt(griffin) {
     });
     // write config from keyset to form fields
     jQuery("#add-secret-form").on("open.zf.reveal", function() {
-        jQuery.each(["generate-lower", "generate-upper", "generate-numbers",
-                     "generate-special", "generate-length"], function() {
-                         var value = griffin.config[this];
-                         if (value === true) {
-                             jQuery("#" + this).prop("checked", true);
-                         }
-                         else {
-                             jQuery("#" + this).val(value);
-                         }
-                     });
+        jQuery.each(
+            ["generate-lower", "generate-upper", "generate-numbers",
+             "generate-special", "generate-length", "generate-exclude-similar"],
+            function() {
+                var value = griffin.config[this];
+                if (value === true) {
+                    jQuery("#" + this).prop("checked", true);
+                }
+                else {
+                    jQuery("#" + this).val(value);
+                }
+            });
     });
     // hook up handler to show/hide password fields
     jQuery("#toggle-show-secret").click(function() {
@@ -423,9 +451,13 @@ function doLoginPrompt(griffin) {
         var name = jQuery(this).attr("id");
         var value = (jQuery(this).attr("type") == "checkbox") ?
                     jQuery(this).prop("checked") : parseInt(jQuery(this).val());
-        console.log(name + ": " + value);
         griffin.config[name] = value;
         griffin.storeKeys();
+    });
+    // handler for generate password button
+    jQuery("#generate-secret").click(function() {
+        var password = griffin.generatePassword();
+        jQuery("#add-password-1,#add-password-2").val(password);
     });
 }
 

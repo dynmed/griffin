@@ -69,6 +69,10 @@ GriffinSecret.prototype = {
 function GriffinKeySet() {
     this.KEY_DB_NAME = "griffin.kdb";
     this.BASE_32 = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+    this.LOWER = "abcdefghijklmnopqrstuvwxyz";
+    this.UPPER = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    this.NUMBERS = "0123456789";
+    this.SPECIAL = "!\"#$%&'()*+,-./:;<=>?@[\]^_`{|}~";
 
     //this.version = 2;
     this.ED25519_PRIVATE_KEY = null;
@@ -106,6 +110,37 @@ GriffinKeySet.prototype = {
         this.email = email;
         // persist keys to localStorage
         this.storeKeys();
+    },
+
+    /* generate secure password
+     *
+     * returns: string password
+     */
+    generatePassword: function() {
+        var password = "";
+        var charset = "";
+        var charmap = {
+            "generate-lower": this.LOWER,
+            "generate-upper": this.UPPER,
+            "generate-numbers": this.NUMBERS,
+            "generate-special": this.SPECIAL
+        }
+        // determine character set based on config options
+        for (prop in charmap) {
+            if (this.config[prop] === true) {
+                charset += charmap[prop];
+            }
+        }
+        // remove visually similar characters if configured
+        if (this.config["generate-exclude-similar"] === true) {
+            charset.replace(/B8G6I1l0OQDS5Z2/g, "");
+        }
+        // generate password based on random selection from character set
+        while (password.length < this.config["generate-length"]) {
+            var i = sodium.randombytes_uniform(charset.length);
+            password += charset[i];
+        }
+        return password;
     },
 
     /* encrypt, serialize, and store the keyset and configuration settings
