@@ -67,7 +67,6 @@ GriffinSecret.prototype = {
 // wrapper object to contain signing keys, encryption keys, and all the
 // encrypted secrets that we can pickle and store to the filesystem
 function GriffinKeySet() {
-    this.KEY_DB_NAME = "griffin.kdb";
     this.BASE_32 = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
     this.LOWER = "abcdefghijklmnopqrstuvwxyz";
     this.UPPER = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
@@ -80,7 +79,15 @@ function GriffinKeySet() {
     this.SALSA20_PRIVATE_KEY = null;
     // email address of user
     this.email = null;
-    this.config = {};
+    // default configuration settings
+    this.config = {
+        "generate-length": 12,
+        "generate-numbers": true,
+        "generate-lower": true,
+        "generate-upper": true,
+        "generate-special":true,
+        "generate-exclude-similar": true
+    };
     this.secrets = {};
     // storage object for session related data
     this.session = {
@@ -91,6 +98,17 @@ function GriffinKeySet() {
 }
 
 GriffinKeySet.prototype = {
+    /* return a key to use in localStorage based on a hashed username
+     *
+     * returns: string keyDB name
+     */
+    getKeyDBName: function() {
+        var userHash = Utils.bytesToB64(
+            sodium.crypto_hash(this.session.username).slice(0, 12)
+        );
+        return "griffin." + userHash + ".kdb";
+    },
+        
     /* generate sigining and encryption keys, store them in localStorage
      *
      * args: string email address of user
@@ -162,7 +180,7 @@ GriffinKeySet.prototype = {
         // serialize the encrypted keys for localStorage
         var serialized = JSON.stringify(encrypted);
         // persist encrypted keys in localStorage
-        window.localStorage.setItem(this.KEY_DB_NAME, serialized);
+        window.localStorage.setItem(this.getKeyDBName(), serialized);
     },
 
     deriveMasterKey: function(passphrase, salt) {
@@ -181,7 +199,7 @@ GriffinKeySet.prototype = {
         try {
             // get encrypted keys from localStorage
             var encrypted = JSON.parse(
-                window.localStorage.getItem(this.KEY_DB_NAME)
+                window.localStorage.getItem(this.getKeyDBName())
             );
             // fetch master passphrase from DOM or prompt user
             var passphrase = this.session.masterPassphrase;
@@ -219,11 +237,6 @@ GriffinKeySet.prototype = {
     },
 
     doConversion: function(keys) {
-        // version 1 -> 2: add config options to encrypted keyset
-        if (keys.version == 1) {
-            keys.config = {};
-            keys.version = 2;
-        }
     },
 
     /* return the byte array for our symmetric encryption key

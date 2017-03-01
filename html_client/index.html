@@ -95,25 +95,33 @@
             <fieldset class="fieldset">
               <div class="row">
                 <div class="small-2 columns">
-                  <label for="generate-lower" class="text-right">Lowercase</label>
+                  <label for="generate-lower" class="text-right">
+                    Lowercase
+                  </label>
                 </div>
                 <div class="small-1 columns">
                   <input id="generate-lower" type="checkbox">
                 </div>
                 <div class="small-2 columns">
-                  <label for="generate-upper" class="text-right">Uppercase</label>
+                  <label for="generate-upper" class="text-right">
+                    Uppercase
+                  </label>
                 </div>
                 <div class="small-1 columns">
                   <input id="generate-upper" type="checkbox">
                 </div>
                 <div class="small-2 columns">
-                  <label for="generate-numbers" class="text-right">Numbers</label>
+                  <label for="generate-numbers" class="text-right">
+                    Numbers
+                  </label>
                 </div>
                 <div class="small-1 columns">
                   <input id="generate-numbers" type="checkbox">
                 </div>
                 <div class="small-2 columns">
-                  <label for="generate-special" class="text-right">Special</label>
+                  <label for="generate-special" class="text-right">
+                    Special
+                  </label>
                 </div>
                 <div class="small-1 columns">
                   <input id="generate-special" type="checkbox">
@@ -121,14 +129,16 @@
               </div>
               <div class="row">
                 <div class="small-2 columns">
-                  <label for="generate-length" class="text-right">Length</label>
+                  <label for="generate-length" class="text-right">
+                    Length
+                  </label>
                 </div>
                 <div class="small-2 columns">
                   <input id="generate-length" type="number">
                 </div>
                 <div class="small-4 columns">
                   <label for="generate-exclude-similar" class="text-right">
-                    Exclude lookalike characters
+                    Exclude look-alike characters
                   </label>
                 </div>
                 <div class="small-2 columns end">
@@ -140,10 +150,10 @@
         </form>
       </div>
 
-      <button class="close-button" data-close aria-label="Close modal" type="button">
+      <button class="close-button" type="button" data-close>
         <span aria-hidden="true">&times;</span>
       </button>
-      
+
     </div><!-- #add-secret-form -->
 
     <div class="row hide" id="authentication">
@@ -151,11 +161,17 @@
         <div class="callout">
           <form action="#">
             <h4 class="text-center">Log in to access your account</h4>
+            <div data-abide-error role="alert" class="alert callout"
+                 style="display: none">
+              <p><i class="fi-alert"></i>
+                Your username or passphrase was incorrect.
+              </p>
+            </div>
             <label>Email:
               <input type="text" id="username" placeholder="name@example.com" />
             </label>
             <label>Passphrase:
-              <input type="password" id="master-passphrase" value="password" placeholder="Your complex passphrase"/>
+              <input type="password" id="master-passphrase" placeholder="Your complex passphrase"/>
             </label>
             <label>
               <a id="login-submit" href="#" class="button expand">Submit</a>
@@ -305,7 +321,8 @@ function authenticateUser(griffin) {
         displaySecrets(griffin);
     }
     else {
-        console.log("unable to decrypt passwords")
+        // show top level error message
+        jQuery("#authentication").find("div.alert").show();
     }
 }
 
@@ -546,6 +563,7 @@ function setupEventHandlers(griffin) {
         var name = jQuery(this).attr("id");
         var value = (jQuery(this).attr("type") == "checkbox") ?
                     jQuery(this).prop("checked") : parseInt(jQuery(this).val());
+        // TODO expose griffin.saveConfig instead
         griffin.config[name] = value;
         griffin.storeKeys();
     });
