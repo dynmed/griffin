@@ -318,7 +318,7 @@ GriffinKeySet.prototype = {
             }
             secrets.push(this.secrets[i]);
         }
-        secrets.sort(sortSecrets("domain", "username"));
+        secrets.sort(sortSecrets("site", "username"));
         return secrets;
     },
 

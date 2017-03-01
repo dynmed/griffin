@@ -61,10 +61,10 @@
           <div data-abide-error role="alert" class="alert callout" style="display: none">
             <p><i class="fi-alert"></i> Please fix the errors below.</p>
           </div>
-          <label id="add-domain-lbl" for="add-domain">Domain:
-            <input type="text" id="add-domain" />
+          <label id="add-site-lbl" for="add-site">Site:
+            <input type="text" id="add-site" />
           </label>
-          <span class="form-error" id="add-domain-err"></span>
+          <span class="form-error" id="add-site-err"></span>
           <label id="add-username-lbl" for="add-username">Username:
             <input type="text" id="add-username" />
           </label>
@@ -141,8 +141,14 @@
                     Exclude look-alike characters
                   </label>
                 </div>
-                <div class="small-2 columns end">
+                <div class="small-1 columns">
                   <input id="generate-exclude-similar" type="checkbox">
+                </div>
+                <div class="small-3 columns">
+		  <label class="text-right">
+                    <a href="#" id="import-json"
+                       data-open="import-json-form">Import JSON</a>
+                  </label>
                 </div>
               </div>
             </fieldset>
@@ -155,6 +161,37 @@
       </button>
 
     </div><!-- #add-secret-form -->
+
+    <div class="reveal" id="import-json-form" data-reveal>
+      <h4>Import secrets from JSON</h4>
+      <!-- TODO hyperlink to LastPass conversion script -->
+      <div data-abide-error role="alert" class="alert callout"
+           style="display: none">
+        <p><i class="fi-alert"></i> <span id="import-error-msg"></span></p>
+      </div>
+      <div class="callout">
+        <form action="#" data-abide novalidate>
+          <div class="row">
+            <div class="small-3 columns">
+              <label for="import-json-file">
+                Select File
+              </label>
+            </div>
+            <div class="small-4 columns">
+              <input id="import-json-file" type="file" />
+            </div>
+            <div class="small-5 columns">
+              <a id="import-json-submit" href="#" class="button float-right">
+                Import
+              </a>
+            </div>
+          </div>
+        </form>
+      </div>
+      <button class="close-button" type="button" data-close>
+        <span aria-hidden="true">&times;</span>
+      </button>
+    </div>
 
     <div class="row hide" id="authentication">
       <div class="medium-6 medium-centered columns">
@@ -171,12 +208,15 @@
               <input type="text" id="username" placeholder="name@example.com" />
             </label>
             <label>Passphrase:
-              <input type="password" id="master-passphrase" placeholder="Your complex passphrase"/>
+              <input type="password" id="master-passphrase"
+                     placeholder="Your complex passphrase"/>
             </label>
             <label>
               <a id="login-submit" href="#" class="button expand">Submit</a>
             </label>
-            <p><a href="#" id="show-registration">Register a new account</a></p>
+            <p>
+              <a href="#" id="show-registration">Register a new account</a>
+            </p>
           </form>
         </div>
       </div>
@@ -187,11 +227,13 @@
         <div class="callout">
           <h4 class="text-center">Register a new account</h4>
           <form action="#">
-            <div data-abide-error role="alert" class="alert callout" style="display: none">
+            <div data-abide-error role="alert" class="alert callout"
+                 style="display: none">
               <p><i class="fi-alert"></i> Please fix the errors below.</p>
             </div>
             <label id="username-reg-lbl" for="username-reg">Email:
-              <input type="text" id="username-reg" placeholder="name@example.com" />
+              <input type="text" id="username-reg"
+                     placeholder="name@example.com" />
             </label>
             <span class="form-error" id="username-reg-err"></span>
             <label id="master-passphrase-reg-lbl"
@@ -207,9 +249,13 @@
             </label>
             <span class="form-error" id="master-passphrase-reg-2-err"></span>
             <label>
-              <a id="registration-submit" href="#" class="button expand">Submit</a>
+              <a id="registration-submit" href="#" class="button expand">
+                Submit
+              </a>
             </label>
-            <p><a href="#" id="show-authentication">I already have an account</a></p>
+            <p>
+              <a href="#" id="show-authentication">I already have an account</a>
+            </p>
           </form>
         </div>
       </div>
@@ -256,8 +302,8 @@ function displaySecrets(griffin) {
             selectRow(this);
         };
         var dCell = row.insertCell();
-        var domain = document.createTextNode(secrets[i]["data"]["domain"]);
-        dCell.appendChild(domain);
+        var site = document.createTextNode(secrets[i]["data"]["site"]);
+        dCell.appendChild(site);
         var uCell = row.insertCell();
         var username = document.createTextNode(secrets[i]["data"]["username"]);
         uCell.appendChild(username);
@@ -284,7 +330,7 @@ function displaySecrets(griffin) {
             // populate "Add Secret" form with existing values
             var existing = griffin.getSecret(secretId);
             jQuery("#add-secret-id").val(existing.id);
-            jQuery("#add-domain").val(existing.data.domain);
+            jQuery("#add-site").val(existing.data.site);
             jQuery("#add-username").val(existing.data.username);
             jQuery("#add-password-1").val(existing.data.password);
             jQuery("#add-password-2").val(existing.data.password);
@@ -371,7 +417,7 @@ function registerUser(griffin) {
     displaySecrets(griffin);    
 }
 
-// TODO this could be merged with addSecretErrors
+// TODO this could be merged with addSecretErrors and importJSONErrors
 function registrationErrors(errors) {
     // clear all existing errors
     jQuery("#registration").find("div.alert").hide();
@@ -402,14 +448,14 @@ function addSecret(griffin) {
 
     // read field values
     var secretId = jQuery("#add-secret-id").val();
-    var domain = jQuery("#add-domain").val();
+    var site = jQuery("#add-site").val();
     var username = jQuery("#add-username").val();
     var password1 = jQuery("#add-password-1").val();
     var password2 = jQuery("#add-password-2").val();
 
     // validate field values
-    if (!domain.length) {
-        errors["add-domain"] = "Domain is required.";
+    if (!site.length) {
+        errors["add-site"] = "Site is required.";
     }
 
     if (!password1.length) {
@@ -431,13 +477,12 @@ function addSecret(griffin) {
 
     // valid submission so create the new GriffinSecret
     var secret = new GriffinSecret({
-        domain: domain,
+        site: site,
         username: username,
         password: password1
     });
     // if we are editing an existing secret set the ID, otherwise null
     secret.id = (secretId != "") ? parseInt(secretId) : null;
-
     secret.touch();
     griffin.saveSecret(secret);
 
@@ -572,6 +617,98 @@ function setupEventHandlers(griffin) {
         var password = griffin.generatePassword();
         jQuery("#add-password-1,#add-password-2").val(password);
     });
+    // // JSON file selected
+    // jQuery("#import-json-file").change(function() {
+    //     alert("picky");
+    // });
+    // submit JSON to be imported
+    jQuery("#import-json-submit").click(function() {
+        importJSON(griffin);
+    });
+    jQuery("#import-json-form").on("closed.zf.reveal", function() {
+        // reset the form when the dialog is closed
+        jQuery(this).find("input").val("");
+        jQuery(this).find("div.alert").hide();
+    });
+}
+
+function importJSONErrors(errors) {
+    // clear existing errors
+    jQuery("#import-error-msg").text("");
+    jQuery("#import-json-form").find("div.alert").hide();
+    if (errors == null) {
+        // reset file picker
+        jQuery("#import-json-file").val("");
+        return;
+    }
+    jQuery("#import-error-msg").text(errors["import-json-file"]);
+    jQuery("#import-json-form").find("div.alert").show();
+}
+
+/* read a JSON array from an imported file and create new GriffinSecrets
+ *
+ * args: GriffinKeySet
+ */
+function importJSON(griffin) {
+    // container for validation errors
+    var errors = {};
+    var file = jQuery("#import-json-file").get(0).files[0];
+    var reader = new FileReader();
+    // callback to process data read from the file
+    reader.onload = function createNewSecrets(evt) {
+        // container for parsed JSON secrets
+        var secrets = null;
+        var text = evt.target.result;
+        // attempt to parse file contents as JSON
+        try {
+            secrets = JSON.parse(reader.result);
+        }
+        catch (e) {
+            errors["import-json-file"] = "File contains invalid JSON";
+        }
+        // validation errors
+        if (Object.keys(errors).length) {
+            importJSONErrors(errors);
+            return;
+        }
+        // process JSON into new GriffinSecrets
+        // TODO display progress bar
+        for (var i = 0 ; i < secrets.length ; i++) {
+            var secret = new GriffinSecret({
+                site: secrets[i].site,
+                username: secrets[i].username,
+                password: secrets[i].password
+            });
+            secret.touch();
+            griffin.saveSecret(secret);
+        }
+        // close the import JSON form
+        jQuery("#import-json-form").foundation("close");
+
+        // re-draw the table of secrets
+        displaySecrets(griffin);
+    };
+    
+    
+    // make sure a file has been selected
+    if (file === undefined) {
+        errors["import-json-file"] = "No file selected";
+    }
+    // attempt to read from input file
+    else {
+        try {
+            reader.readAsText(file);
+        }
+        catch (e) {
+            errors["import-json-file"] = "Unable to read from file";
+        }
+    }
+
+    // validation errors
+    if (Object.keys(errors).length) {
+        importJSONErrors(errors);
+        return;
+    }
 }
 
 var griffin = new GriffinKeySet();
