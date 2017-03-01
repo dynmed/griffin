@@ -294,12 +294,19 @@ GriffinKeySet.prototype = {
      */
     getSecrets: function(kwargs) {
         // sort array of secrets based on value of passed property
-        sortSecrets = function(property) {
+        sortSecrets = function(prop1, prop2) {
             return function(a, b) {
-                if (a.data[property] < b.data[property])
+                if (a.data[prop1] < b.data[prop1])
                     return -1;
-                if (a.data[property] > b.data[property])
+                if (a.data[prop1] > b.data[prop1])
                     return 1;
+                // secondary property to sort by
+                if (prop2) {
+                    if (a.data[prop2] < b.data[prop2])
+                        return -1;
+                    if (a.data[prop2] > b.data[prop2])
+                        return 1;
+                }
                 return 0
             }
         };
@@ -311,7 +318,7 @@ GriffinKeySet.prototype = {
             }
             secrets.push(this.secrets[i]);
         }
-        secrets.sort(sortSecrets("domain"));
+        secrets.sort(sortSecrets("domain", "username"));
         return secrets;
     },
 
