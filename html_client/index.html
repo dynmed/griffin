@@ -42,6 +42,8 @@
                   <th>Username</th>
                   <th class="ui-control-narrow">&nbsp;</th>
                   <th class="ui-control-narrow">&nbsp;</th>
+                  <th class="ui-control-narrow">&nbsp;</th>
+                  <th class="ui-control-narrow">&nbsp;</th>
                 </tr>
               </thead>
               <tbody></tbody>
@@ -285,10 +287,10 @@ function displayUIView(view) {
 }
     
 // display table of stored secrets
-function displaySecrets(griffin) {
+function displaySecrets(griffin, query) {
     // show the secrets UI
     displayUIView("secrets");
-    var secrets = griffin.getSecrets();
+    var secrets = griffin.getSecrets(query);
 
     var newTbody = document.createElement("tbody");
     // TODO filter just on "password" type issues
@@ -297,16 +299,22 @@ function displaySecrets(griffin) {
         // store the ID on the DOM node so we can reference this secret from
         // the UI
         row.dataset.index = secrets[i].id;
-        // add event handler to copy password to clipboard
-        row.onclick = function() {
-            selectRow(this);
-        };
         var dCell = row.insertCell();
         var site = document.createTextNode(secrets[i]["data"]["site"]);
         dCell.appendChild(site);
         var uCell = row.insertCell();
         var username = document.createTextNode(secrets[i]["data"]["username"]);
         uCell.appendChild(username);
+        var copyPCell = row.insertCell();
+        copyPCell.className = "ui-control-narrow";
+        var copyP = document.createElement("i");
+        copyP.className = "fi-lock";
+        copyPCell.appendChild(copyP);
+        var copyUCell = row.insertCell();
+        copyUCell.className = "ui-control-narrow";
+        var copyU = document.createElement("i");
+        copyU.className = "fi-torso";
+        copyUCell.appendChild(copyU);
         var eCell = row.insertCell();
         eCell.className = "ui-control-narrow";
         var edit = document.createElement("i");
@@ -317,16 +325,39 @@ function displaySecrets(griffin) {
         var del = document.createElement("i");
         del.className = "fi-trash";
         delCell.appendChild(del);
+        // make row selectable
+        jQuery(row).click(function() {
+            selectRow(this);
+        });
     }
     var oldTbody = jQuery("#secrets").find("tbody")[0];
     oldTbody.parentNode.replaceChild(newTbody, oldTbody);
 
-
-    // set up handlers for secret editing UI buttons
+    // set up handlers for secret editing/copying UI buttons
     jQuery("td.ui-control-narrow").on("click", function() {
         var secretId = jQuery(this).closest("tr").data("index");
+        // copy password
+        if (jQuery(this).find("i").hasClass("fi-lock")) {
+            var temp = document.createElement("input");
+            temp.setAttribute("value", griffin.getSecret(secretId).data.password);
+            document.body.appendChild(temp);
+            temp.select();
+            document.execCommand("copy");
+            document.body.removeChild(temp);
+            // TODO set timer to clear the clipboard
+        }
+        // copy username
+        else if (jQuery(this).find("i").hasClass("fi-torso")) {
+            var temp = document.createElement("input");
+            temp.setAttribute("value", griffin.getSecret(secretId).data.username);
+            document.body.appendChild(temp);
+            temp.select();
+            document.execCommand("copy");
+            document.body.removeChild(temp);
+            // TODO set timer to clear the clipboard
+        }
         // edit secret
-        if (jQuery(this).find("i").hasClass("fi-pencil")) {
+        else if (jQuery(this).find("i").hasClass("fi-pencil")) {
             // populate "Add Secret" form with existing values
             var existing = griffin.getSecret(secretId);
             jQuery("#add-secret-id").val(existing.id);
@@ -525,24 +556,6 @@ function addSecretErrors(errors) {
 }
 
 function setupEventHandlers(griffin) {
-    // add handler for copy events
-    document.addEventListener("copy", function(e) {
-        var selected = document.querySelector("tr.selected");
-        // bail early if there is not a row selected
-        if (!selected) {
-            return;
-        }
-        // put the secret data on the clipboard
-        // TODO make this more generic so the secret doesn't need a "password"
-        // attribute to be placed on the clipboard
-        e.clipboardData.setData(
-            "text/plain",
-            griffin.getSecret(selected.dataset.index).data.password
-        );
-        // TODO set timer to clear the clipboard
-        e.preventDefault();
-    });
-
     // set up handler for login form submit
     jQuery("#login-submit").click(function() {
         authenticateUser(griffin);
@@ -617,10 +630,6 @@ function setupEventHandlers(griffin) {
         var password = griffin.generatePassword();
         jQuery("#add-password-1,#add-password-2").val(password);
     });
-    // // JSON file selected
-    // jQuery("#import-json-file").change(function() {
-    //     alert("picky");
-    // });
     // submit JSON to be imported
     jQuery("#import-json-submit").click(function() {
         importJSON(griffin);
@@ -629,6 +638,14 @@ function setupEventHandlers(griffin) {
         // reset the form when the dialog is closed
         jQuery(this).find("input").val("");
         jQuery(this).find("div.alert").hide();
+    });
+    // search handler
+    jQuery("#secret-search").on("keyup paste", function(evt) {
+        var query = jQuery(this).val();
+        if (query.length) {
+            return displaySecrets(griffin, query);
+        }
+        displaySecrets(griffin);
     });
 }
 

@@ -316,7 +316,17 @@ GriffinKeySet.prototype = {
             if (jQuery.isEmptyObject(this.secrets[i].data)) {
                 continue;
             }
-            secrets.push(this.secrets[i]);
+            // try to match query terms
+            if (kwargs !== undefined) {
+                if ((this.secrets[i].data.site.toLowerCase().includes(kwargs)) ||
+                    (this.secrets[i].data.username.toLowerCase().includes(kwargs))) {
+                    secrets.push(this.secrets[i]);
+                }
+            }
+            // no query so include everything
+            else {
+                secrets.push(this.secrets[i]);
+            }
         }
         secrets.sort(sortSecrets("site", "username"));
         return secrets;
