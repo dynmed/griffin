@@ -27,3 +27,68 @@ td.ui-control-narrow {
 i.alert {
     color: #cc4b37; /* copied from button.alert */
 }
+
+#secret-list {
+    border-top: 1px solid rgba(10, 10, 10, 0.25); /* copied from .callout */
+    border-right: 1px solid rgba(10, 10, 10, 0.25); /* copied from .callout */
+    border-left: 1px solid rgba(10, 10, 10, 0.25); /* copied from .callout */
+}
+div.secret {
+    border-bottom: 1px solid rgba(10, 10, 10, 0.25); /* copied from .callout */
+    position: relative;
+}
+div.secret:nth-of-type(even) {
+    background: #f1f1f1;
+}
+div.secret:hover {
+    background-color: #f9f9f9;
+}
+div.secret:nth-of-type(even):hover {
+    background-color: #ececec;
+}
+div.secret h4 {
+    margin-bottom: 0;
+}
+small.username {
+    color: #8a8a8a;
+}
+div.site-icon {
+    text-align: center;
+}
+div.site-icon i {
+    color: black;
+    font-size: 1.25rem;
+}
+div.ui-control-panel {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100%;
+    position: absolute;
+    right: 5px;
+}
+div.ui-control {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 1.5rem;
+    width: 2rem;
+    height: 2rem;
+    margin: 0 3px;
+    float: right;
+    /* copied from .button */
+    background-color: #1779ba;
+    color: #fefefe;
+}
+div.ui-control:hover {
+    background-color: #126195;
+    color: #fefefe;
+}
+div.ui-control.secondary {
+    background-color: #767676;
+    color: #fefefe;
+}
+div.ui-control.secondary:hover {
+    background-color: #5e5e5e;
+    color: #fefefe;
+}

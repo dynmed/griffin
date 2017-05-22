@@ -14,8 +14,7 @@
     <div class="row hide" id="secrets">
       <h4>Secret Vault</h4>
       <div class="large-12 columns">
-        <div class="row callout">
-
+        <div class="row">
           <div class="large-3 columns"><!-- filters -->
             <div class="row">
               <div class="large-12 columns">
@@ -34,20 +33,39 @@
 	    </div>
           </div><!-- end filters -->
 
-          <div class="large-9 columns"><!-- secret display -->
-            <table id="secrets-table" class="hover">
-              <thead>
-                <tr>
-                  <th>Site</th>
-                  <th>Username</th>
-                  <th class="ui-control-narrow">&nbsp;</th>
-                  <th class="ui-control-narrow">&nbsp;</th>
-                  <th class="ui-control-narrow">&nbsp;</th>
-                  <th class="ui-control-narrow">&nbsp;</th>
-                </tr>
-              </thead>
-              <tbody></tbody>
-            </table>
+          <div class="large-9 columns" id="secret-list"><!-- secret display -->
+            <div class="row secret">
+              <div class="small-1 columns site-icon">
+                <i class="fi-magnifying-glass"></i>
+              </div>
+              <div class="small-11 columns">
+                <h4>google.com</h4>
+                <small class="username">brandon.sterne</small>
+              </div>
+            </div>
+            <div class="row secret">
+              <div class="small-1 columns site-icon">
+                <i class="fi-star"></i>
+              </div>
+              <div class="small-11 columns">
+                <h4>google.google.google.com</h4>
+                <small class="username">jackthecoiner</small>
+              </div>
+              <div class="ui-control-panel">
+                <div class="ui-control">
+                  <i class="fi-lock"></i>
+                </div>
+                <div class="ui-control">
+                  <i class="fi-torso"></i>
+                </div>
+                <div class="ui-control secondary">
+                  <i class="fi-pencil"></i>
+                </div>
+                <div class="ui-control secondary">
+                  <i class="fi-trash"></i>
+                </div>
+              </div>
+            </div>
           </div><!-- end secret display -->
 
         </div>
@@ -646,6 +664,12 @@ function setupEventHandlers(griffin) {
             return displaySecrets(griffin, query);
         }
         displaySecrets(griffin);
+    });
+    // UI elements on click, hover
+    jQuery("div.secret").on("click", function(evt) {
+        // var index = jQuery(this).closest("tr").data("index");
+        var row = jQuery(this).closest("div.secret");
+        console.log(row);
     });
 }
 
