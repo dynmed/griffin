@@ -1,4 +1,4 @@
-tr.selected {
+div.selected {
     background: #ECFAFF none repeat scroll 0% 0% !important;
     color: #222;
 }
@@ -60,12 +60,11 @@ div.site-icon i {
     font-size: 1.25rem;
 }
 div.ui-control-panel {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    height: 100%;
+    display: none;
     position: absolute;
     right: 5px;
+    top: 50%;
+    transform: translateY(-50%);
 }
 div.ui-control {
     display: flex;
@@ -75,7 +74,7 @@ div.ui-control {
     width: 2rem;
     height: 2rem;
     margin: 0 3px;
-    float: right;
+    float: left;
     /* copied from .button */
     background-color: #1779ba;
     color: #fefefe;

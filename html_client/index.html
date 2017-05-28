@@ -33,40 +33,9 @@
 	    </div>
           </div><!-- end filters -->
 
-          <div class="large-9 columns" id="secret-list"><!-- secret display -->
-            <div class="row secret">
-              <div class="small-1 columns site-icon">
-                <i class="fi-magnifying-glass"></i>
-              </div>
-              <div class="small-11 columns">
-                <h4>google.com</h4>
-                <small class="username">brandon.sterne</small>
-              </div>
-            </div>
-            <div class="row secret">
-              <div class="small-1 columns site-icon">
-                <i class="fi-star"></i>
-              </div>
-              <div class="small-11 columns">
-                <h4>google.google.google.com</h4>
-                <small class="username">jackthecoiner</small>
-              </div>
-              <div class="ui-control-panel">
-                <div class="ui-control">
-                  <i class="fi-lock"></i>
-                </div>
-                <div class="ui-control">
-                  <i class="fi-torso"></i>
-                </div>
-                <div class="ui-control secondary">
-                  <i class="fi-pencil"></i>
-                </div>
-                <div class="ui-control secondary">
-                  <i class="fi-trash"></i>
-                </div>
-              </div>
-            </div>
-          </div><!-- end secret display -->
+          <!-- secret-list -->
+          <div class="large-9 columns" id="secret-list"></div>
+          <!-- end secret-list -->
 
         </div>
       </div>
@@ -309,51 +278,50 @@ function displaySecrets(griffin, query) {
     // show the secrets UI
     displayUIView("secrets");
     var secrets = griffin.getSecrets(query);
+    // clear out existing list
+    var secretList = jQuery("#secret-list").empty();
 
-    var newTbody = document.createElement("tbody");
-    // TODO filter just on "password" type issues
     for (var i = 0 ; i < secrets.length ; i++) {
-        var row = newTbody.insertRow();
-        // store the ID on the DOM node so we can reference this secret from
-        // the UI
-        row.dataset.index = secrets[i].id;
-        var dCell = row.insertCell();
-        var site = document.createTextNode(secrets[i]["data"]["site"]);
-        dCell.appendChild(site);
-        var uCell = row.insertCell();
-        var username = document.createTextNode(secrets[i]["data"]["username"]);
-        uCell.appendChild(username);
-        var copyPCell = row.insertCell();
-        copyPCell.className = "ui-control-narrow";
-        var copyP = document.createElement("i");
-        copyP.className = "fi-lock";
-        copyPCell.appendChild(copyP);
-        var copyUCell = row.insertCell();
-        copyUCell.className = "ui-control-narrow";
-        var copyU = document.createElement("i");
-        copyU.className = "fi-torso";
-        copyUCell.appendChild(copyU);
-        var eCell = row.insertCell();
-        eCell.className = "ui-control-narrow";
-        var edit = document.createElement("i");
-        edit.className = "fi-pencil";
-        eCell.appendChild(edit);
-        var delCell = row.insertCell();
-        delCell.className = "ui-control-narrow";
-        var del = document.createElement("i");
-        del.className = "fi-trash";
-        delCell.appendChild(del);
+        var secret = jQuery(
+            `<div class="row secret">
+               <div class="small-1 columns site-icon">
+                          <i class="fi-web"></i>
+                        </div>
+                        <div class="small-11 columns">
+                          <h4>-</h4>
+                          <small class="username"></small>
+                        </div>
+                        <div class="ui-control-panel">
+                          <div class="ui-control">
+                            <i class="fi-lock"></i>
+                          </div>
+                          <div class="ui-control">
+                            <i class="fi-torso"></i>
+                          </div>
+                          <div class="ui-control secondary">
+                            <i class="fi-pencil"></i>
+                          </div>
+                          <div class="ui-control secondary">
+                            <i class="fi-trash"></i>
+                          </div>
+                        </div>
+                      </div>`
+        );
+        jQuery(secret).find("h4").text(secrets[i]["data"]["site"]);
+        jQuery(secret).find("small").text(secrets[i]["data"]["username"]);
+        // store the ID on the row so we can reference this secret from the UI
+        jQuery(secret).data("index", secrets[i].id);
         // make row selectable
-        jQuery(row).click(function() {
+        jQuery(secret).click(function() {
             selectRow(this);
         });
+        secretList.append(secret);
     }
-    var oldTbody = jQuery("#secrets").find("tbody")[0];
-    oldTbody.parentNode.replaceChild(newTbody, oldTbody);
 
     // set up handlers for secret editing/copying UI buttons
-    jQuery("td.ui-control-narrow").on("click", function() {
-        var secretId = jQuery(this).closest("tr").data("index");
+    jQuery("div.ui-control").on("click", function() {
+        var secretId = jQuery(this).closest("div.secret").data("index");
+        // TODO convert to template + jQuery insert
         // copy password
         if (jQuery(this).find("i").hasClass("fi-lock")) {
             var temp = document.createElement("input");
@@ -388,6 +356,7 @@ function displaySecrets(griffin, query) {
         // delete secret
         else {
             griffin.deleteSecret(secretId);
+            // TODO should display with query intact
             displaySecrets(griffin);
         }
     });
@@ -395,12 +364,9 @@ function displaySecrets(griffin, query) {
 
 function selectRow(row) {
     // deselect the other rows
-    var rows = row.parentElement.getElementsByTagName("tr");
-    for (var i = 0 ; i < rows.length ; i++) {
-        rows[i].className = rows[i].className.replace(/\bselected\b/,'');
-    }
-    // select the new row
-    row.className = "selected";
+    jQuery(".secret").removeClass("selected").find(".ui-control-panel").hide();
+    // select the new row and show the UI
+    jQuery(row).addClass("selected").find(".ui-control-panel").show();
 }
 
 // destroy session and display log in form
