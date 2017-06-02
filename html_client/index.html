@@ -417,12 +417,14 @@ function registerUser(griffin) {
 
     // create the new keyset
     var session = griffin.session;
-    session.username = jQuery("#username-reg").val();
+    session.username = email;
     session.masterPassphrase = phrase1;
     session.active = true;
     // generate encryption and signing keys
     try {
-        griffin.generateKeys(email);
+        griffin.generateKeys(session.username);
+        // persist keys to localStorage
+        griffin.storeKeys();
     }
     catch(e) {
         alert("problem generating keys");

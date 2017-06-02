@@ -8,8 +8,21 @@ var GRIFFIN_HOST = "griffin.local";
 var GRIFFIN_PATH = "griffin";
 
 var Utils = {
+    CHUNK_SIZE: 8192,
+
     bytesToB64: function(bytes) {
-        return btoa(String.fromCharCode.apply(null, bytes));
+        if (bytes.length < this.CHUNK_SIZE) {
+            return btoa(String.fromCharCode.apply(null, bytes));
+        }
+        // For large byte arrays, we need to chunk this up due to maximum
+        // number of args to pass to fromCharCode. See:
+        // https://stackoverflow.com/a/24595052
+        var str = "";
+        for (var i = 0 ; i < bytes.length ; i += this.CHUNK_SIZE) {
+            var chunk = bytes.slice(i, i + this.CHUNK_SIZE);
+            str += String.fromCharCode.apply(null, chunk);
+        }
+        return btoa(str);
     },
 
     b64ToBytes: function(b64) {
@@ -109,7 +122,7 @@ GriffinKeySet.prototype = {
         return "griffin." + userHash + ".kdb";
     },
         
-    /* generate sigining and encryption keys, store them in localStorage
+    /* generate sigining and encryption keys
      *
      * args: string email address of user
      */
@@ -126,8 +139,6 @@ GriffinKeySet.prototype = {
         this.SALSA20_PRIVATE_KEY = Utils.bytesToB64(encrypt_key);
         // store the email address (username)
         this.email = email;
-        // persist keys to localStorage
-        this.storeKeys();
     },
 
     /* generate secure password
