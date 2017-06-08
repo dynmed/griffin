@@ -91,3 +91,6 @@ div.ui-control.secondary:hover {
     background-color: #5e5e5e;
     color: #fefefe;
 }
+#server-msg {
+    margin-left: 1em;
+}

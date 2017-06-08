@@ -29,6 +29,11 @@
                    data-open="add-secret-form">
                   Add Secret
                 </a>
+		<a href="#" class="button secondary small float-right"
+                   id="show-settings"
+                   data-open="settings-form">
+                  Settings
+                </a>
 	      </div>
 	    </div>
           </div><!-- end filters -->
@@ -40,6 +45,31 @@
         </div>
       </div>
     </div><!-- #secrets -->
+
+    <div class="reveal" id="settings-form" data-reveal>
+      <h4>Settings</h4>
+
+      <div class="callout">
+        <form action="#" data-abide novalidate>
+          <label id="sync-passwords-lbl" for="sync-passwords">Sync Passwords:
+            <input id="sync-passwords" type="checkbox" />
+          </label>
+          <span class="form-error" id="sync-passwords-err"></span>
+          <label id="sync-server-url-lbl" for="sync-server-url">Server URL:
+            <input type="text" id="sync-server-url" />
+          </label>
+          <span class="form-error" id="sync-server-url-err"></span>
+          <p class="help-text">
+            <a href="#" id="sync-now">Sync Now</a>
+            <strong id="server-msg"></strong>
+          </p>
+        </form>
+      </div>
+
+      <button class="close-button" type="button" data-close>
+        <span aria-hidden="true">&times;</span>
+      </button>
+    </div><!-- #settings-form -->
 
     <div class="reveal" id="add-secret-form" data-reveal>
       <h4>Add New Secret</h4>
@@ -210,7 +240,7 @@
         </div>
       </div>
     </div>
-    
+
     <div class="row hide" id="registration">
       <div class="medium-6 medium-centered columns">
         <div class="callout">
@@ -272,7 +302,7 @@ function displayUIView(view) {
         }
     }
 }
-    
+
 // display table of stored secrets
 function displaySecrets(griffin, query) {
     // show the secrets UI
@@ -417,21 +447,19 @@ function registerUser(griffin) {
 
     // create the new keyset
     var session = griffin.session;
-    session.username = email;
+    session.username = jQuery("#username-reg").val();
     session.masterPassphrase = phrase1;
     session.active = true;
     // generate encryption and signing keys
     try {
-        griffin.generateKeys(session.username);
-        // persist keys to localStorage
-        griffin.storeKeys();
+        griffin.generateKeys(email);
     }
     catch(e) {
         alert("problem generating keys");
     }
 
     // show the secrets UI
-    displaySecrets(griffin);    
+    displaySecrets(griffin);
 }
 
 // TODO this could be merged with addSecretErrors and importJSONErrors
@@ -456,7 +484,7 @@ function registrationErrors(errors) {
             jQuery("#" + field + "-err").addClass("is-visible");
             jQuery("#" + field + "-err").text(errors[field]);
         }
-    }    
+    }
 }
 
 function addSecret(griffin) {
@@ -587,6 +615,19 @@ function setupEventHandlers(griffin) {
                 }
             });
     });
+    jQuery("#settings-form").on("open.zf.reveal", function() {
+        jQuery.each(
+            ["sync-passwords", "sync-server-url"],
+            function() {
+                var value = griffin.config[this];
+                if (value === true) {
+                    jQuery("#" + this).prop("checked", true);
+                }
+                else {
+                    jQuery("#" + this).val(value);
+                }
+            });
+    });
     // hook up handler to show/hide password fields
     jQuery("#toggle-show-secret").click(function() {
         var masked = (jQuery("#add-password-1").attr("type") == "password") ?
@@ -633,11 +674,17 @@ function setupEventHandlers(griffin) {
         }
         displaySecrets(griffin);
     });
-    // UI elements on click, hover
-    jQuery("div.secret").on("click", function(evt) {
-        // var index = jQuery(this).closest("tr").data("index");
-        var row = jQuery(this).closest("div.secret");
-        console.log(row);
+    // settings panel
+    jQuery("#settings-form").find("input").on("change keyup", function() {
+        var name = jQuery(this).attr("id");
+        var value = (jQuery(this).attr("type") == "checkbox") ?
+                    jQuery(this).prop("checked") : jQuery(this).val();
+        griffin.config[name] = value;
+        griffin.storeKeys();
+    });
+    // Sync Now button
+    jQuery("#sync-now").click(function() {
+        griffin.syncPasswords();
     });
 }
 
@@ -697,8 +744,7 @@ function importJSON(griffin) {
         // re-draw the table of secrets
         displaySecrets(griffin);
     };
-    
-    
+
     // make sure a file has been selected
     if (file === undefined) {
         errors["import-json-file"] = "No file selected";

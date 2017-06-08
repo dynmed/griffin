@@ -99,7 +99,9 @@ function GriffinKeySet() {
         "generate-lower": true,
         "generate-upper": true,
         "generate-special":true,
-        "generate-exclude-similar": true
+        "generate-exclude-similar": true,
+        "sync-passwords": false,
+        "sync-server-url": ""
     };
     this.secrets = {};
     // storage object for session related data
@@ -139,6 +141,17 @@ GriffinKeySet.prototype = {
         this.SALSA20_PRIVATE_KEY = Utils.bytesToB64(encrypt_key);
         // store the email address (username)
         this.email = email;
+    },
+
+    getSigningKey: function() {
+        if (this.ED25519_PRIVATE_KEY === null)
+            return null;
+        return Utils.b64ToBytes(this.ED25519_PRIVATE_KEY);
+    },
+
+    signMsg: function(msg) {
+        var key = this.getSigningKey();
+        return Utils.bytesToB64(sodium.crypto_sign(msg, key));
     },
 
     /* generate secure password
@@ -386,5 +399,58 @@ GriffinKeySet.prototype = {
             return 0;
         }
         return parseInt(Math.max.apply(null, Object.keys(griffin.secrets))) + 1;
+    },
+
+    /* send Griffin secrets below a particular age for storage on the server
+    *
+    * args: number age in seconds
+    */
+    syncPasswords: function(age) {
+        var xhr = new XMLHttpRequest();
+        xhr.open("POST", this.config["sync-server-url"] + "record/");
+        var data = JSON.stringify({
+            "data": this.getSecret(0).data.toSource(),
+            "metadata": ""
+        });
+        // serialize request for signature
+        var msg = JSON.stringify({
+            "method": "POST",
+            "content_type": "text/plain;charset=UTF-8",
+            "path": "/griffin/griffin/record/",
+            "data": data,
+            "expires": (new Date).getTime()-1000*60,
+        });
+        // sign request fields
+        var signature = this.signMsg(msg);
+        xhr.setRequestHeader(
+            "Authorization",
+            "Griffin " + this.session.username + ":" + signature
+        );
+        xhr.onreadystatechange = function () {
+            if (xhr.readyState === XMLHttpRequest.DONE) {
+                var response = JSON.parse(xhr.responseText);
+                // create new user registration on server
+                if (response["details"] === "Invalid Username") {
+                    console.log(this);
+                    this.registerUser();
+                }
+            }
+        };
+        xhr.send(data);
+    },
+
+    registerUser: function() {
+        var xhr = new XMLHttpRequest();
+        xhr.open("POST", this.config["sync-server-url"] + "user/");
+        xhr.onreadystatechange = function () {
+            if (xhr.readyState === XMLHttpRequest.DONE) {
+                console.log(xhr);
+            }
+        };
+        var data = {
+            "email": this.session.username,
+            "pubkey": this.ED25519_VERIFY_KEY
+        };
+        xhr.send(JSON.stringify(data));
     }
 };
