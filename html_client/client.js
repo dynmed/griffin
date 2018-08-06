@@ -347,7 +347,7 @@ GriffinKeySet.prototype = {
                 switch (secretType) {
                 // credit card: match card name
                 case "cc":
-                    if (this.secrets[i].data.card.toLowerCase().includes(kwargs)) {
+                    if (this.secrets[i].data.cardType.toLowerCase().includes(kwargs)) {
                         secrets.push(this.secrets[i]);
                     }
 
