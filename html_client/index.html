@@ -80,25 +80,63 @@
           <div data-abide-error role="alert" class="alert callout" style="display: none">
             <p><i class="fi-alert"></i> Please fix the errors below.</p>
           </div>
-          <label id="add-site-lbl" for="add-site">Site:
-            <input type="text" id="add-site" />
+
+          <label id="secret-type-lbl" for="secret-type">Type:
+            <select id="add-secret-type">
+              <option value="site">Site</option>
+              <option value="cc">Credit Card</option>
+            </select>
           </label>
-          <span class="form-error" id="add-site-err"></span>
-          <label id="add-username-lbl" for="add-username">Username:
-            <input type="text" id="add-username" />
-          </label>
-          <span class="form-error" id="add-username-err"></span>
-          <label id="add-password-1-lbl" for="add-password-1">Password:
-            <div class="password-container">
-              <input type="password" id="add-password-1" />
-              <i class="fi-eye" id="toggle-show-secret"></i>
-            </div>
-          </label>
-          <span class="form-error" id="add-password-1-err"></span>
-          <label id="add-password-2-lbl" for="add-password-2">Repeat Password:
-            <input type="password" id="add-password-2" />
-          </label>
-          <span class="form-error" id="add-password-2-err"></span>
+
+          <fieldset id="add-site-fields">
+            <label id="add-site-lbl" for="add-site">Site:
+              <input type="text" id="add-site" />
+            </label>
+            <span class="form-error" id="add-site-err"></span>
+            <label id="add-username-lbl" for="add-username">Username:
+              <input type="text" id="add-username" />
+            </label>
+            <span class="form-error" id="add-username-err"></span>
+            <label id="add-password-1-lbl" for="add-password-1">Password:
+              <div class="password-container">
+                <input type="password" id="add-password-1" />
+                <i class="fi-eye" id="toggle-show-secret"></i>
+              </div>
+            </label>
+            <span class="form-error" id="add-password-1-err"></span>
+            <label id="add-password-2-lbl" for="add-password-2">Repeat Password:
+              <input type="password" id="add-password-2" />
+            </label>
+            <span class="form-error" id="add-password-2-err"></span>
+          </fieldset>
+
+          <fieldset id="add-cc-fields">
+            <label id="add-cc-type-lbl" for="add-cc-type">Card Type:
+              <input type="text" id="add-cc-type" />
+            </label>
+            <span class="form-error" id="add-cc-type-err"></span>
+            <label id="add-cc-name-lbl" for="add-username">Name on Card:
+              <input type="text" id="add-cc-name" />
+            </label>
+            <span class="form-error" id="add-cc-name-err"></span>
+            <label id="add-cc-number-lbl" for="add-cc-number">Number:
+              <input type="text" id="add-cc-number" />
+            </label>
+            <span class="form-error" id="add-cc-number-err"></span>
+            <label id="add-cc-pin-lbl" for="add-cc-pin">PIN:
+              <input type="text" id="add-cc-pin" />
+            </label>
+            <span class="form-error" id="add-cc-pin-err"></span>
+            <label id="add-cc-exp-lbl" for="add-cc-exp">Expiration:
+              <input type="text" id="add-cc-exp" />
+            </label>
+            <span class="form-error" id="add-cc-exp-err"></span>
+            <label id="add-cc-cvv-lbl" for="add-cc-cvv">Security Code:
+              <input type="text" id="add-cc-cvv" />
+            </label>
+            <span class="form-error" id="add-cc-cvv-err"></span>
+          </fieldset>
+
           <div class="row">
             <a id="generate-secret" href="#" class="button secondary">
               Generate
@@ -228,7 +266,8 @@
             </label>
             <label>Passphrase:
               <input type="password" id="master-passphrase"
-                     placeholder="Your complex passphrase"/>
+                     placeholder="Your complex passphrase"
+                     value="passphrase" />
             </label>
             <label>
               <a id="login-submit" href="#" class="button expand">Submit</a>
@@ -315,7 +354,7 @@ function displaySecrets(griffin, query) {
         var secret = jQuery(
             `<div class="row secret">
                <div class="small-1 columns site-icon">
-                          <i class="fi-web"></i>
+                          <i class="secret-icon"></i>
                         </div>
                         <div class="small-11 columns">
                           <h4>-</h4>
@@ -337,8 +376,29 @@ function displaySecrets(griffin, query) {
                         </div>
                       </div>`
         );
-        jQuery(secret).find("h4").text(secrets[i]["data"]["site"]);
-        jQuery(secret).find("small").text(secrets[i]["data"]["username"]);
+        var secretType = secrets[i]["data"]["type"] || "site";
+        var icon, title, subtitle;
+        // map the secret's attributes to the UI container based on what type it is
+        switch (secretType) {
+        case "cc":
+            icon = "fi-credit-card";
+            title = secrets[i]["data"]["cardType"];
+            subtitle = secrets[i]["data"]["nameOnCard"];
+            break;
+        case "site":
+            icon = "fi-web";
+            title = secrets[i]["data"]["site"];
+            subtitle = secrets[i]["data"]["username"];
+            break;
+        default:
+            console.log("displaySecrets error. Unknown type: " + secretType);
+        }
+        // TODO
+        // 1. mask credit cards in the UI minus last 4
+        // 2. mask optional PIN for credit/debit cards
+        jQuery(secret).find(".secret-icon").addClass(icon);
+        jQuery(secret).find("h4").text(title);
+        jQuery(secret).find("small").text(subtitle);
         // store the ID on the row so we can reference this secret from the UI
         jQuery(secret).data("index", secrets[i].id);
         // make row selectable
@@ -350,6 +410,8 @@ function displaySecrets(griffin, query) {
 
     // set up handlers for secret editing/copying UI buttons
     jQuery("div.ui-control").on("click", function() {
+        // reset the add/edit UI to default: "Add New Secret"
+        jQuery("#add-secret-form").find("h4").text("Add New Secret");
         var secretId = jQuery(this).closest("div.secret").data("index");
         // TODO convert to template + jQuery insert
         // copy password
@@ -374,13 +436,23 @@ function displaySecrets(griffin, query) {
         }
         // edit secret
         else if (jQuery(this).find("i").hasClass("fi-pencil")) {
+            jQuery("#add-secret-form").find("h4").text("Edit Secret");
             // populate "Add Secret" form with existing values
             var existing = griffin.getSecret(secretId);
+            // site fields
             jQuery("#add-secret-id").val(existing.id);
             jQuery("#add-site").val(existing.data.site);
             jQuery("#add-username").val(existing.data.username);
             jQuery("#add-password-1").val(existing.data.password);
             jQuery("#add-password-2").val(existing.data.password);
+            // credit card fields
+            jQuery("#add-cc-type").val(existing.data.cardType);
+            jQuery("#add-cc-name").val(existing.data.nameOnCard);
+            jQuery("#add-cc-number").val(existing.data.cardNumber);
+            jQuery("#add-cc-pin").val(existing.data.cardPin);
+            jQuery("#add-cc-exp").val(existing.data.cardExp);
+            jQuery("#add-cc-cvv").val(existing.data.cardCvv);
+            // show the form
             jQuery("#add-secret-form").foundation("open");
         }
         // delete secret
@@ -497,21 +569,58 @@ function addSecret(griffin) {
     var username = jQuery("#add-username").val();
     var password1 = jQuery("#add-password-1").val();
     var password2 = jQuery("#add-password-2").val();
+    var cardType = jQuery("#add-cc-type").val();
+    var nameOnCard = jQuery("#add-cc-name").val();
+    var cardNumber = jQuery("#add-cc-number").val();
+    var cardPin = jQuery("#add-cc-pin").val();
+    var cardExp = jQuery("#add-cc-exp").val();
+    var cardCvv = jQuery("#add-cc-cvv").val();
 
-    // validate field values
-    if (!site.length) {
-        errors["add-site"] = "Site is required.";
-    }
+    // validate field values based on secret type
+    var secretType = jQuery("#add-secret-type").val();
+    switch (secretType) {
+    case "site":
+        if (!site.length) {
+            errors["add-site"] = "Site is required.";
+        }
 
-    if (!password1.length) {
-        errors["add-password-1"] = "Enter password.";
-    }
+        if (!password1.length) {
+            errors["add-password-1"] = "Enter password.";
+        }
 
-    if (!password2.length) {
-        errors["add-password-2"] = "Enter password again.";
-    }
-    else if (password1 != password2) {
-        errors["add-password-2"] = "Passwords do not match.";
+        if (!password2.length) {
+            errors["add-password-2"] = "Enter password again.";
+        }
+        else if (password1 != password2) {
+            errors["add-password-2"] = "Passwords do not match.";
+        }
+        break;
+    case "cc":
+        if (!cardType.length) {
+            errors["add-cc-type"] = "Card type is required.";
+        }
+        if (!nameOnCard.length) {
+            errors["add-cc-name"] = "Name on card is required.";
+        }
+        if (!cardNumber.length) {
+            errors["add-cc-number"] = "Card number is required.";
+        }
+        else if (! /^[0-9]{15,16}$/.test(cardNumber)) {
+            errors["add-cc-number"] = "Card number is invalid.";
+        }
+        if (cardPin.length && !/^[0-9]{1,8}$/.test(cardPin)) {
+            errors["add-cc-pin"] = "PIN is invalid.";
+        }
+        if (cardExp.length && !/^[0-9]{2}\/[0-9]{2}$/.test(cardExp)) {
+            errors["add-cc-exp"] = "Expiration is invalid. Use format MM/YY.";
+        }
+        if (cardCvv.length && !/^[0-9]{3,4}$/.test(cardCvv)) {
+            errors["add-cc-cvv"] = "Security code is invalid.";
+        }
+        break;
+    default:
+        console.log("addSecret error. Unknown type: " + secretType);
+        return;
     }
 
     // prevent secret creation if there were validation errors
@@ -521,11 +630,26 @@ function addSecret(griffin) {
     }
 
     // valid submission so create the new GriffinSecret
-    var secret = new GriffinSecret({
-        site: site,
-        username: username,
-        password: password1
-    });
+    switch (secretType) {
+    case "site":
+        var secret = new GriffinSecret({
+            site: site,
+            username: username,
+            password: password1
+        });
+        break;
+    case "cc":
+        var secret = new GriffinSecret({
+            type: secretType,
+            cardType: cardType,
+            nameOnCard: nameOnCard,
+            cardNumber: cardNumber,
+            cardPin: cardPin,
+            cardExp: cardExp,
+            cardCvv: cardCvv
+        });
+        break;
+    }
     // if we are editing an existing secret set the ID, otherwise null
     secret.id = (secretId != "") ? parseInt(secretId) : null;
     secret.touch();
@@ -592,6 +716,23 @@ function setupEventHandlers(griffin) {
     });
 
     // set up handlers for add new secret form
+    function showSecretFieldsForType() {
+        // update secret form based on the type of secret
+        var secretType = jQuery("#add-secret-type").val();
+        jQuery("#add-secret-form").find("fieldset").hide();
+        // show only the fields that are relevant for this secret type
+        switch (secretType) {
+        case "cc":
+            jQuery("#add-cc-fields").show();
+            break;
+        case "site":
+            jQuery("#add-site-fields").show();
+            break;
+        }
+    }
+    jQuery("#add-secret-form").on("open.zf.reveal", showSecretFieldsForType);
+    jQuery("#add-secret-type").on("change", showSecretFieldsForType);
+
     jQuery("#add-secret-submit").click(function() {
         addSecret(griffin);
     });
@@ -730,11 +871,27 @@ function importJSON(griffin) {
         // process JSON into new GriffinSecrets
         // TODO display progress bar
         for (var i = 0 ; i < secrets.length ; i++) {
-            var secret = new GriffinSecret({
-                site: secrets[i].site,
-                username: secrets[i].username,
-                password: secrets[i].password
-            });
+            // handle special types, i.e. non-site-password items
+            if ("type" in secrets[i]) {
+                switch (secrets[i].type) {
+                case "cc":
+                    var secret = new GriffinSecret({
+                        type: "cc",
+                        number: secrets[i].number,
+                        expiration: secrets[i].expiration,
+                        cvv: secrets[i].cvv
+                    });
+                default:
+                    console.log("Import error. Unknown type: " + secrets[i].type);
+                }
+            }
+            else {
+                var secret = new GriffinSecret({
+                    site: secrets[i].site,
+                    username: secrets[i].username,
+                    password: secrets[i].password
+                });
+            }
             secret.touch();
             griffin.saveSecret(secret);
         }

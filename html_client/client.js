@@ -123,7 +123,7 @@ GriffinKeySet.prototype = {
         );
         return "griffin." + userHash + ".kdb";
     },
-        
+
     /* generate sigining and encryption keys
      *
      * args: string email address of user
@@ -243,7 +243,7 @@ GriffinKeySet.prototype = {
             while (keys.version < this.version) {
                 this.doConversion(keys);
             }
-            
+
             // read the decrypted keys and properties into our object
             this.ED25519_PRIVATE_KEY = keys.ED25519_PRIVATE_KEY;
             this.ED25519_VERIFY_KEY = keys.ED25519_VERIFY_KEY;
@@ -287,7 +287,7 @@ GriffinKeySet.prototype = {
     },
 
     /* decrypt an EncryptedMessage and return the plaintext
-     * 
+     *
      * args: EncryptedMessage encrypted, (optional) Uint8Array key bytes
      * returns: Uint8Array plaintext bytes
      */
@@ -342,9 +342,25 @@ GriffinKeySet.prototype = {
             }
             // try to match query terms
             if (kwargs !== undefined) {
-                if ((this.secrets[i].data.site.toLowerCase().includes(kwargs)) ||
-                    (this.secrets[i].data.username.toLowerCase().includes(kwargs))) {
-                    secrets.push(this.secrets[i]);
+                var secretType = this.secrets[i]["data"]["type"] || "site";
+                // search the secret's attributes based on what type it is
+                switch (secretType) {
+                // credit card: match card name
+                case "cc":
+                    if (this.secrets[i].data.card.toLowerCase().includes(kwargs)) {
+                        secrets.push(this.secrets[i]);
+                    }
+
+                    break;
+                // website: match site name, username
+                case "site":
+                    if ((this.secrets[i].data.site.toLowerCase().includes(kwargs)) ||
+                        (this.secrets[i].data.username.toLowerCase().includes(kwargs))) {
+                        secrets.push(this.secrets[i]);
+                    }
+                    break;
+                default:
+                    console.log("getSecrets error. Unknown type: " + secretType);
                 }
             }
             // no query so include everything
@@ -352,6 +368,7 @@ GriffinKeySet.prototype = {
                 secrets.push(this.secrets[i]);
             }
         }
+        // TODO this won't work for non-site secrets
         secrets.sort(sortSecrets("site", "username"));
         return secrets;
     },
@@ -380,7 +397,7 @@ GriffinKeySet.prototype = {
 
     /* Delete a secret from the keyset. In practice, this means overwriting the
      * secret data with an empty object so we don't re-use the ID.
-     * 
+     *
      * args: number id
      */
     deleteSecret: function(id) {
