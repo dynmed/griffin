@@ -384,6 +384,9 @@ function displaySecrets(griffin, query) {
             icon = "fi-credit-card";
             title = secrets[i]["data"]["cardType"];
             subtitle = secrets[i]["data"]["nameOnCard"];
+            // remove "copy username" from UI for credit card
+            // TODO replace this with UI for "copy PIN"
+            secret.find(".fi-torso").parent().remove();
             break;
         case "site":
             icon = "fi-web";
@@ -413,11 +416,25 @@ function displaySecrets(griffin, query) {
         // reset the add/edit UI to default: "Add New Secret"
         jQuery("#add-secret-form").find("h4").text("Add New Secret");
         var secretId = jQuery(this).closest("div.secret").data("index");
+        var existing = griffin.getSecret(secretId);
+        var secretType = existing.data.type || "site";
         // TODO convert to template + jQuery insert
         // copy password
         if (jQuery(this).find("i").hasClass("fi-lock")) {
+            var secretData = null;
+            switch (secretType) {
+            case "cc":
+                secretData = existing.data.cardNumber;
+                break;
+            case "site":
+                secretData = existing.data.password;
+                break;
+            default:
+                console.log("Unknown type: " + secretType);
+                return;
+            }
             var temp = document.createElement("input");
-            temp.setAttribute("value", griffin.getSecret(secretId).data.password);
+            temp.setAttribute("value", secretData);
             document.body.appendChild(temp);
             temp.select();
             document.execCommand("copy");
@@ -427,7 +444,7 @@ function displaySecrets(griffin, query) {
         // copy username
         else if (jQuery(this).find("i").hasClass("fi-torso")) {
             var temp = document.createElement("input");
-            temp.setAttribute("value", griffin.getSecret(secretId).data.username);
+            temp.setAttribute("value", existing.data.username);
             document.body.appendChild(temp);
             temp.select();
             document.execCommand("copy");
@@ -438,7 +455,7 @@ function displaySecrets(griffin, query) {
         else if (jQuery(this).find("i").hasClass("fi-pencil")) {
             jQuery("#add-secret-form").find("h4").text("Edit Secret");
             // populate "Add Secret" form with existing values
-            var existing = griffin.getSecret(secretId);
+            jQuery("#add-secret-type").val(secretType);
             // site fields
             jQuery("#add-secret-id").val(existing.id);
             jQuery("#add-site").val(existing.data.site);
@@ -618,6 +635,8 @@ function addSecret(griffin) {
             errors["add-cc-cvv"] = "Security code is invalid.";
         }
         break;
+    // TODO implement open ended "Secure Data" as collection of name:value
+    // pairs to store
     default:
         console.log("addSecret error. Unknown type: " + secretType);
         return;
