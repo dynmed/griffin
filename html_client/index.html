@@ -88,7 +88,7 @@
             </select>
           </label>
 
-          <fieldset id="add-site-fields">
+          <fieldset id="add-site-fields" class="secret-fields">
             <label id="add-site-lbl" for="add-site">Site:
               <input type="text" id="add-site" />
             </label>
@@ -110,12 +110,21 @@
             <span class="form-error" id="add-password-2-err"></span>
           </fieldset>
 
-          <fieldset id="add-cc-fields">
+          <fieldset id="add-cc-fields" class="secret-fields">
             <label id="add-cc-type-lbl" for="add-cc-type">Card Type:
-              <input type="text" id="add-cc-type" />
+              <select id="add-cc-type">
+                <option>Visa</option>
+                <option>MasterCard</option>
+                <option>AmEx</option>
+                <option>Other</option>
+              </select>
             </label>
             <span class="form-error" id="add-cc-type-err"></span>
-            <label id="add-cc-name-lbl" for="add-username">Name on Card:
+            <label id="add-cc-nick-lbl" for="add-cc-nick">Card Nickname:
+              <input type="text" id="add-cc-nick" />
+            </label>
+            <span class="form-error" id="add-cc-nick-err"></span>
+            <label id="add-cc-name-lbl" for="add-cc-name">Cardholder Name:
               <input type="text" id="add-cc-name" />
             </label>
             <span class="form-error" id="add-cc-name-err"></span>
@@ -148,6 +157,7 @@
           <small>
             <a href="#" id="toggle-password-options">Password Options</a>
           </small>
+
           <div class="row" id="password-options" style="display: none">
             <fieldset class="fieldset">
               <div class="row">
@@ -325,9 +335,15 @@
     <script src="foundation-6/js/vendor/jquery.js"></script>
     <script src="foundation-6/js/vendor/what-input.js"></script>
     <script src="foundation-6/js/vendor/foundation.js"></script>
-    <script src="sodium.min.js"></script>
+    <script src="sodium.js" async></script>
     <script src="client.js"></script>
-<script>
+    <script>
+window.sodium = {
+    onload: function (sodium) {
+        console.log("sodium loaded.");
+    }
+};
+
 // navigate between UI views
 function displayUIView(view) {
     var views = ["secrets", "authentication", "registration"];
@@ -382,7 +398,7 @@ function displaySecrets(griffin, query) {
         switch (secretType) {
         case "cc":
             icon = "fi-credit-card";
-            title = secrets[i]["data"]["cardType"];
+            title = secrets[i]["data"]["cardNick"];
             subtitle = secrets[i]["data"]["nameOnCard"];
             // remove "copy username" from UI for credit card
             // TODO replace this with UI for "copy PIN"
@@ -464,6 +480,7 @@ function displaySecrets(griffin, query) {
             jQuery("#add-password-2").val(existing.data.password);
             // credit card fields
             jQuery("#add-cc-type").val(existing.data.cardType);
+            jQuery("#add-cc-nick").val(existing.data.cardNick);
             jQuery("#add-cc-name").val(existing.data.nameOnCard);
             jQuery("#add-cc-number").val(existing.data.cardNumber);
             jQuery("#add-cc-pin").val(existing.data.cardPin);
@@ -587,6 +604,7 @@ function addSecret(griffin) {
     var password1 = jQuery("#add-password-1").val();
     var password2 = jQuery("#add-password-2").val();
     var cardType = jQuery("#add-cc-type").val();
+    var cardNick = jQuery("#add-cc-nick").val();
     var nameOnCard = jQuery("#add-cc-name").val();
     var cardNumber = jQuery("#add-cc-number").val();
     var cardPin = jQuery("#add-cc-pin").val();
@@ -615,6 +633,9 @@ function addSecret(griffin) {
     case "cc":
         if (!cardType.length) {
             errors["add-cc-type"] = "Card type is required.";
+        }
+        if (!cardNick.length) {
+            errors["add-cc-nick"] = "Card Nickname is required.";
         }
         if (!nameOnCard.length) {
             errors["add-cc-name"] = "Name on card is required.";
@@ -661,6 +682,7 @@ function addSecret(griffin) {
         var secret = new GriffinSecret({
             type: secretType,
             cardType: cardType,
+            cardNick: cardNick,
             nameOnCard: nameOnCard,
             cardNumber: cardNumber,
             cardPin: cardPin,
@@ -738,7 +760,7 @@ function setupEventHandlers(griffin) {
     function showSecretFieldsForType() {
         // update secret form based on the type of secret
         var secretType = jQuery("#add-secret-type").val();
-        jQuery("#add-secret-form").find("fieldset").hide();
+        jQuery("#add-secret-form").find("fieldset.secret-fields").hide();
         // show only the fields that are relevant for this secret type
         switch (secretType) {
         case "cc":

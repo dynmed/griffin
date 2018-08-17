@@ -192,7 +192,7 @@ GriffinKeySet.prototype = {
         var passphrase = this.session.masterPassphrase;
         // generate random salt
         var salt = sodium.randombytes_buf(
-            sodium.crypto_pwhash_scryptsalsa208sha256_SALTBYTES
+            sodium.crypto_pwhash_SALTBYTES
         );
         // derive master encryption key
         var masterKey = this.deriveMasterKey(passphrase, salt);
@@ -208,12 +208,13 @@ GriffinKeySet.prototype = {
     },
 
     deriveMasterKey: function(passphrase, salt) {
-        return sodium.crypto_pwhash_scryptsalsa208sha256(
+        return sodium.crypto_pwhash(
+            sodium.crypto_box_SEEDBYTES,
             passphrase,
             salt,
-            sodium.crypto_pwhash_scryptsalsa208sha256_OPSLIMIT_INTERACTIVE,
-            sodium.crypto_pwhash_scryptsalsa208sha256_MEMLIMIT_INTERACTIVE,
-            sodium.crypto_box_SEEDBYTES
+            sodium.crypto_pwhash_OPSLIMIT_INTERACTIVE,
+            sodium.crypto_pwhash_MEMLIMIT_INTERACTIVE,
+            sodium.crypto_pwhash_ALG_DEFAULT
         );
     },
 
@@ -256,7 +257,8 @@ GriffinKeySet.prototype = {
             return true;
         }
         catch (e) {
-            return false
+            console.log(e);
+            return false;
         }
     },
 
