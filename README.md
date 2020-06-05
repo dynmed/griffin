@@ -1,3 +1,6 @@
+# Project Discontinued #
+I started using Bitwarden, an open source password manager, and have been quite happy with it as I'm self-hosting and it has native apps for my devices in addition to a browser UI. I'm leaving the code here for posterity, but it's definitely not production ready or supported.
+
 # Griffin #
 
 ## Introduction ##
